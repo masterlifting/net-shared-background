@@ -12,8 +12,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\extensions\Shared.Extensions.csproj" />
-    <ProjectReference Include="..\persistence.abstractions\Shared.Persistence.Abstractions.csproj" />
+    <ProjectReference Include="..\Net.Shared.Background.Abstractions\Net.Shared.Background.Abstractions.csproj" />
   </ItemGroup>
 
 </Project>
