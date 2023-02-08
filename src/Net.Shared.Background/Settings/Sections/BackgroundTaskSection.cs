@@ -1,4 +1,6 @@
-﻿namespace Shared.Background.Settings.Sections;
+﻿using Net.Shared.Background.Settings;
+
+namespace Net.Shared.Background.Settings.Sections;
 
 public sealed class BackgroundTaskSection
 {

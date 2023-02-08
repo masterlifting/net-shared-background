@@ -2,13 +2,14 @@
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
-using Shared.Background.Core.BackgroundTaskServices;
-using Shared.Background.Core.Base;
-using Shared.Background.Settings.Sections;
-using Shared.Persistence.Abstractions.Entities;
-using Shared.Persistence.Abstractions.Entities.Catalogs;
+using Net.Shared.Background.Core.Base;
+using Net.Shared.Background.Settings.Sections;
+using Net.Shared.Persistence.Abstractions.Entities;
+using Net.Shared.Persistence.Abstractions.Entities.Catalogs;
 
-namespace Shared.Background.Core.BackgroundServices;
+using Shared.Background.Core.BackgroundTaskServices;
+
+namespace Net.Shared.Background.Core.BackgroundServices;
 
 public abstract class BackgroundServiceProcessing<TEntity, TStep> : BackgroundServiceBase<TEntity>
     where TEntity : class, IPersistentProcess

@@ -2,14 +2,17 @@
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
-using Shared.Background.Exceptions;
-using Shared.Background.Interfaces;
-using Shared.Background.Settings;
-using Shared.Background.Settings.Sections;
-using Shared.Extensions.Logging;
-using Shared.Persistence.Abstractions.Entities;
+using Net.Shared.Background;
+using Net.Shared.Background.Abstractions.Interfaces;
 
-namespace Shared.Background.Core.Base;
+using Net.Shared.Background.Settings;
+using Net.Shared.Background.Settings.Sections;
+using Net.Shared.Persistence.Abstractions.Entities;
+
+using Shared.Background.Exceptions;
+using Shared.Extensions.Logging;
+
+namespace Net.Shared.Background.Core.Base;
 
 public abstract class BackgroundServiceBase<T> : BackgroundService where T : class, IPersistentProcess
 {

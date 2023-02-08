@@ -1,4 +1,4 @@
-﻿namespace Shared.Background;
+﻿namespace Net.Shared.Background;
 
 internal static class Constants
 {

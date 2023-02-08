@@ -1,7 +1,7 @@
 ﻿using Shared.Exceptions.Abstractions;
 using Shared.Exceptions.Models;
 
-namespace Shared.Background.Exceptions;
+namespace Net.Shared.Background.Exceptions;
 
 public sealed class SharedBackgroundException : SharedException
 {

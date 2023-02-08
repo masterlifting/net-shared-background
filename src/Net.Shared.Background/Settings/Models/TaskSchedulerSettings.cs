@@ -1,4 +1,4 @@
-﻿namespace Shared.Background.Settings.Models;
+﻿namespace Net.Shared.Background.Settings.Models;
 
 public sealed class TaskSchedulerSettings
 {

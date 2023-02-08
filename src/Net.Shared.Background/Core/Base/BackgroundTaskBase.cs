@@ -1,14 +1,15 @@
 ﻿using Microsoft.Extensions.Logging;
 
+using Net.Shared.Background.Settings;
+using Net.Shared.Persistence.Abstractions.Entities.Catalogs;
+using Net.Shared.Persistence.Abstractions.Repositories;
+
 using Shared.Background.Exceptions;
-using Shared.Background.Settings;
 using Shared.Extensions.Logging;
-using Shared.Persistence.Abstractions.Entities.Catalogs;
-using Shared.Persistence.Abstractions.Repositories;
 
 using System.Collections.Concurrent;
 
-namespace Shared.Background.Core.Base;
+namespace Net.Shared.Background.Core.Base;
 
 public abstract class BackgroundTaskBase<TStep> where TStep : class, IProcessStep
 {

@@ -1,11 +1,11 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 
-using Shared.Background.Core.BackgroundTasks;
-using Shared.Background.Core.Base;
-using Shared.Persistence.Abstractions.Entities;
-using Shared.Persistence.Abstractions.Entities.Catalogs;
+using Net.Shared.Background.Core.BackgroundTasks;
+using Net.Shared.Background.Core.Base;
+using Net.Shared.Persistence.Abstractions.Entities;
+using Net.Shared.Persistence.Abstractions.Entities.Catalogs;
 
-namespace Shared.Background.Core.BackgroundTaskServices;
+namespace Net.Shared.Background.Core.BackgroundTaskServices;
 
 internal sealed class BackgroundTaskServiceProcessing<TEntity, TStep> : BackgroundTaskServiceBase<TEntity, TStep, BackgroundTaskProcessing<TEntity, TStep>>
     where TEntity : class, IPersistentProcess

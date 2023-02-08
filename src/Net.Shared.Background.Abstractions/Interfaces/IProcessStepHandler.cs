@@ -1,6 +1,6 @@
-﻿using Shared.Persistence.Abstractions.Entities;
+﻿using Net.Shared.Persistence.Abstractions.Entities;
 
-namespace Shared.Background.Interfaces;
+namespace Net.Shared.Background.Abstractions.Interfaces;
 
 public interface IProcessStepHandler<T> where T : class, IPersistentProcess
 {

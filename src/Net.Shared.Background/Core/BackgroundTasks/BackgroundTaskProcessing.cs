@@ -1,20 +1,21 @@
 ﻿using Microsoft.Extensions.Logging;
 
-using Shared.Background.Core.Base;
-using Shared.Background.Core.Handlers;
+using Net.Shared.Background.Core.Base;
+using Net.Shared.Background.Core.Handlers;
+using Net.Shared.Background.Settings;
+using Net.Shared.Persistence.Abstractions.Entities;
+using Net.Shared.Persistence.Abstractions.Entities.Catalogs;
+using Net.Shared.Persistence.Abstractions.Repositories;
+
 using Shared.Background.Exceptions;
-using Shared.Background.Settings;
 using Shared.Extensions.Logging;
-using Shared.Persistence.Abstractions.Entities;
-using Shared.Persistence.Abstractions.Entities.Catalogs;
-using Shared.Persistence.Abstractions.Repositories;
 
 using System.Collections.Concurrent;
 
-using static Shared.Background.Constants;
-using static Shared.Persistence.Abstractions.Constants.Enums;
+using static Net.Shared.Background.Constants;
+using static Net.Shared.Persistence.Abstractions.Constants.Enums;
 
-namespace Shared.Background.Core.BackgroundTasks;
+namespace Net.Shared.Background.Core.BackgroundTasks;
 
 public abstract class BackgroundTaskProcessing<TEntity, TStep> : BackgroundTaskBase<TStep>
     where TEntity : class, IPersistentProcess

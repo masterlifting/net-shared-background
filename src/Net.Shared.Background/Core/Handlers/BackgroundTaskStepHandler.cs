@@ -1,9 +1,10 @@
-﻿using Shared.Background.Exceptions;
-using Shared.Background.Interfaces;
-using Shared.Persistence.Abstractions.Entities;
-using Shared.Persistence.Abstractions.Entities.Catalogs;
+﻿using Net.Shared.Background.Abstractions.Interfaces;
+using Net.Shared.Persistence.Abstractions.Entities;
+using Net.Shared.Persistence.Abstractions.Entities.Catalogs;
 
-namespace Shared.Background.Core.Handlers;
+using Shared.Background.Exceptions;
+
+namespace Net.Shared.Background.Core.Handlers;
 
 public sealed class BackgroundTaskStepHandler<T> where T : class, IPersistentProcess
 {

@@ -1,6 +1,6 @@
 ﻿using Shared.Background.Settings;
 
-namespace Shared.Background.Interfaces;
+namespace Net.Shared.Background.Abstractions.Interfaces;
 
 public interface IBackgroundTaskService
 {

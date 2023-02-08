@@ -1,22 +1,23 @@
 ﻿using Microsoft.Extensions.Logging;
 
-using Shared.Background.Core.Base;
-using Shared.Background.Core.Handlers;
+using Net.Shared.Background.Core.Base;
+using Net.Shared.Background.Core.Handlers;
+using Net.Shared.Background.Settings;
+using Net.Shared.Persistence.Abstractions.Entities;
+using Net.Shared.Persistence.Abstractions.Entities.Catalogs;
+using Net.Shared.Persistence.Abstractions.Repositories;
+
 using Shared.Background.Exceptions;
-using Shared.Background.Settings;
 using Shared.Extensions.Logging;
-using Shared.Persistence.Abstractions.Entities;
-using Shared.Persistence.Abstractions.Entities.Catalogs;
-using Shared.Persistence.Abstractions.Repositories;
 
 using System.Collections.Concurrent;
 
-using static Shared.Background.Constants;
+using static Net.Shared.Background.Constants;
 
-namespace Shared.Background.Core.BackgroundTasks;
+namespace Net.Shared.Background.Core.BackgroundTasks;
 
 public abstract class BackgroundTaskPulling<TEntity, TStep> : BackgroundTaskBase<TStep>
-    where TEntity : class,IPersistentProcess
+    where TEntity : class, IPersistentProcess
     where TStep : class, IProcessStep
 {
     private readonly SemaphoreSlim _semaphore = new(1);
@@ -63,7 +64,7 @@ public abstract class BackgroundTaskPulling<TEntity, TStep> : BackgroundTaskBase
     {
         var tasks = Enumerable.Range(0, steps.Count).Select(x => ParallelHandleStepAsync(steps, taskName, taskCount, settings, cToken));
         return Task.WhenAll(tasks);
-    }   
+    }
 
     private async Task ParallelHandleStepAsync(ConcurrentQueue<TStep> steps, string taskName, int taskCount, BackgroundTaskSettings settings, CancellationToken cToken)
     {

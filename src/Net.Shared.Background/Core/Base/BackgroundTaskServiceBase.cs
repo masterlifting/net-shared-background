@@ -1,11 +1,12 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 
-using Shared.Background.Interfaces;
-using Shared.Background.Settings;
-using Shared.Persistence.Abstractions.Entities;
-using Shared.Persistence.Abstractions.Entities.Catalogs;
+using Net.Shared.Background.Abstractions.Interfaces;
 
-namespace Shared.Background.Core.Base;
+using Net.Shared.Background.Settings;
+using Net.Shared.Persistence.Abstractions.Entities;
+using Net.Shared.Persistence.Abstractions.Entities.Catalogs;
+
+namespace Net.Shared.Background.Core.Base;
 
 public abstract class BackgroundTaskServiceBase<TEntity, TStep, TTask> : IBackgroundTaskService
     where TEntity : class, IPersistentProcess
