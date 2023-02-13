@@ -1,8 +1,8 @@
 ﻿using Microsoft.Extensions.Logging;
 
+using Net.Shared.Background.Abstractions.Settings;
 using Net.Shared.Background.Core.Base;
 using Net.Shared.Background.Core.Handlers;
-using Net.Shared.Background.Settings;
 using Net.Shared.Persistence.Abstractions.Entities;
 using Net.Shared.Persistence.Abstractions.Entities.Catalogs;
 using Net.Shared.Persistence.Abstractions.Repositories;

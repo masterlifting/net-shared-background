@@ -1,4 +1,4 @@
-﻿namespace Net.Shared.Background.Settings.Models;
+﻿namespace Net.Shared.Background.Abstractions.Settings.Models;
 
 public sealed class TaskRetryPolicySettings
 {

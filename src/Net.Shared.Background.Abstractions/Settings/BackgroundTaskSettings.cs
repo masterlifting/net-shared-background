@@ -1,6 +1,6 @@
-﻿using Net.Shared.Background.Settings.Models;
+﻿using Net.Shared.Background.Abstractions.Settings.Models;
 
-namespace Net.Shared.Background.Settings;
+namespace Net.Shared.Background.Abstractions.Settings;
 
 public sealed class BackgroundTaskSettings
 {

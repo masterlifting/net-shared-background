@@ -2,8 +2,8 @@
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
+using Net.Shared.Background.Abstractions.Settings.Sections;
 using Net.Shared.Background.Core.Base;
-using Net.Shared.Background.Settings.Sections;
 using Net.Shared.Persistence.Abstractions.Entities;
 using Net.Shared.Persistence.Abstractions.Entities.Catalogs;
 

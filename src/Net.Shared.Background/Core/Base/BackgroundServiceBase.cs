@@ -2,36 +2,29 @@
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
-using Net.Shared.Background;
 using Net.Shared.Background.Abstractions.Interfaces;
+using Net.Shared.Background.Abstractions.Settings;
+using Net.Shared.Background.Abstractions.Settings.Sections;
+using Net.Shared.Background.Exceptions;
 
-using Net.Shared.Background.Settings;
-using Net.Shared.Background.Settings.Sections;
-using Net.Shared.Persistence.Abstractions.Entities;
-
-using Shared.Background.Exceptions;
-using Shared.Extensions.Logging;
+using static Net.Shared.Extensions.LogExtensions;
 
 namespace Net.Shared.Background.Core.Base;
 
-public abstract class BackgroundServiceBase<T> : BackgroundService where T : class, IPersistentProcess
+public abstract class BackgroundServiceBase : BackgroundService
 {
     private int _count;
     private const int Limit = 5_000;
-    private const string Action = "BackgroundService";
 
     private Dictionary<string, BackgroundTaskSettings>? _tasks;
 
     private readonly ILogger _logger;
     private readonly IBackgroundTaskService _taskService;
 
-    protected BackgroundServiceBase(
-        IOptionsMonitor<BackgroundTaskSection> options
-        , ILogger logger
-        , IBackgroundTaskService taskService)
+    protected BackgroundServiceBase(IOptionsMonitor<BackgroundTaskSection> options, ILogger logger, IBackgroundTaskService taskService)
     {
-        _tasks = options.CurrentValue.TaskSettings;
-        options.OnChange(x => _tasks = x.TaskSettings);
+        _tasks = options.CurrentValue.Tasks;
+        options.OnChange(x => _tasks = x.Tasks);
 
         _taskService = taskService;
         _logger = logger;
@@ -40,74 +33,83 @@ public abstract class BackgroundServiceBase<T> : BackgroundService where T : cla
     {
         if (_tasks is null || !_tasks.ContainsKey(_taskService.TaskName))
         {
-            _logger.LogWarn(_taskService.TaskName, Action, Constants.Actions.NoConfig);
+            _logger.LogWarn($"The configuration was not found for the task '{_taskService.TaskName}.'");
             await StopAsync(cToken);
             return;
         }
 
         var settings = _tasks[_taskService.TaskName];
+        var scheduler = new BackgroundTaskScheduler(settings.Scheduler);
 
-        if (!settings.Scheduler.IsReady(out var readyInfo))
+        if (!scheduler.IsReady(out var readyInfo))
         {
-            _logger.LogWarn(_taskService.TaskName, Action, readyInfo);
+            _logger.LogWarn($"The task '{_taskService.TaskName}' wasn't ready because {readyInfo}.");
             await StopAsync(cToken);
             return;
         }
 
-        var timerPeriod = TimeOnly.Parse(settings.Scheduler.WorkTime).ToTimeSpan();
+        var timerPeriod = scheduler.WorkTime.ToTimeSpan();
         using var timer = new PeriodicTimer(timerPeriod);
 
         do
         {
-            if (settings.Scheduler.IsStop(out var stopInfo))
+            if (scheduler.IsStop(out var stopInfo))
             {
-                _logger.LogWarn(_taskService.TaskName, Action, stopInfo);
+                _logger.LogWarn($"The task '{_taskService.TaskName}' was stopped because {stopInfo}.");
                 await StopAsync(cToken);
                 return;
             }
 
-            if (!settings.Scheduler.IsStart(out var startInfo))
+            if (!scheduler.IsStart(out var startInfo))
             {
-                _logger.LogWarn(_taskService.TaskName, Action, startInfo);
+                _logger.LogWarn($"The task '{_taskService.TaskName}' wasn't started because {stopInfo}.");
                 continue;
+            }
+
+            if (_count == int.MaxValue)
+            {
+                _count = 0;
+
+                _logger.LogWarn($"The counter for the task '{_taskService.TaskName}' was reset.");
+            }
+
+            _count++;
+
+            if (settings.Steps.ProcessingMaxCount > Limit)
+            {
+                settings.Steps.ProcessingMaxCount = Limit;
+
+                _logger.LogWarn($"The limit of the processing data from the configuration for the task '{_taskService.TaskName}' was exceeded and was set by default: {Limit}.");
             }
 
             try
             {
-                if (_count == int.MaxValue)
-                    _count = 0;
-
-                _count++;
-
-                _logger.LogTrace(_taskService.TaskName, Action, Constants.Actions.Start);
-
-                if (settings.Steps.ProcessingMaxCount > Limit)
-                {
-                    settings.Steps.ProcessingMaxCount = Limit;
-
-                    _logger.LogWarn(_taskService.TaskName, Action, Constants.Actions.Limit, Limit);
-                }
+                _logger.LogTrace($"The task '{_taskService.TaskName}' is starting...");
 
                 await _taskService.RunTaskAsync(_count, settings, cToken);
 
-                _logger.LogTrace(_taskService.TaskName, Action, Constants.Actions.Done);
+                _logger.LogTrace($"The task '{_taskService.TaskName}' was done!");
+            }
+            catch (NetSharedBackgroundException exception)
+            {
+                _logger.LogError(new NetSharedBackgroundException(exception));
             }
             catch (Exception exception)
             {
-                _logger.LogError(new SharedBackgroundException(_taskService.TaskName, Action, new(exception)));
+                _logger.LogError(new NetSharedBackgroundException($"Unhandled exception: {exception.Message}"));
             }
             finally
             {
-                _logger.LogTrace(_taskService.TaskName, Action, Constants.Actions.NextStart + settings.Scheduler.WorkTime);
+                _logger.LogTrace($"The next task '{_taskService.TaskName}' will launch in {settings.Scheduler.WorkTime}.");
 
                 if (settings.Scheduler.IsOnce)
-                    settings.Scheduler.SetOnce();
+                    scheduler.SetOnce();
             }
         } while (await timer.WaitForNextTickAsync(cToken));
     }
     public override async Task StopAsync(CancellationToken cToken)
     {
-        _logger.LogWarn(_taskService.TaskName, Action, Constants.Actions.Stop);
+        _logger.LogWarn($"The task '{_taskService.TaskName}' was stopped!");
         await base.StopAsync(cToken);
     }
 }
