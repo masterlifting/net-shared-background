@@ -1,4 +1,4 @@
-﻿namespace Net.Shared.Background.Abstractions.Settings.Sections;
+﻿namespace Net.Shared.Background.Models.Settings;
 
 public sealed class BackgroundTaskSection
 {

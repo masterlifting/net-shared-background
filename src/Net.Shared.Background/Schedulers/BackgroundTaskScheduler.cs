@@ -1,6 +1,6 @@
-﻿using Net.Shared.Background.Abstractions.Settings.Models;
+﻿using Net.Shared.Background.Models.Settings;
 
-namespace Net.Shared.Background.Core
+namespace Net.Shared.Background.Schedulers
 {
     public sealed class BackgroundTaskScheduler
     {
@@ -22,7 +22,7 @@ namespace Net.Shared.Background.Core
         public BackgroundTaskScheduler(TaskSchedulerSettings settings)
         {
             _settings = settings;
-            
+
             _isOnce = settings.IsOnce;
 
             WorkTime = TimeOnly.Parse(settings.WorkTime);

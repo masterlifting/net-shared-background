@@ -1,4 +1,4 @@
-﻿using Net.Shared.Background.Abstractions.Settings;
+﻿using Net.Shared.Background.Models.Settings;
 
 namespace Net.Shared.Background.Abstractions.Interfaces;
 

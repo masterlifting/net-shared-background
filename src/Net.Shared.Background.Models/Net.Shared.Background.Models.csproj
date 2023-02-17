@@ -11,9 +11,4 @@
     <PackageReference Include="Microsoft.Extensions.Options" Version="7.0.0" />
   </ItemGroup>
 
-  <ItemGroup>
-    <ProjectReference Include="..\..\..\Net.Shared.Persistence\src\Net.Shared.Persistence.Abstractions\Net.Shared.Persistence.Abstractions.csproj" />
-    <ProjectReference Include="..\Net.Shared.Background.Models\Net.Shared.Background.Models.csproj" />
-  </ItemGroup>
-
 </Project>

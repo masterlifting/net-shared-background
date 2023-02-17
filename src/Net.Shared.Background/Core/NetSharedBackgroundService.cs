@@ -3,15 +3,15 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 using Net.Shared.Background.Abstractions.Interfaces;
-using Net.Shared.Background.Abstractions.Settings;
-using Net.Shared.Background.Abstractions.Settings.Sections;
 using Net.Shared.Background.Exceptions;
+using Net.Shared.Background.Models.Settings;
+using Net.Shared.Background.Schedulers;
 
 using static Net.Shared.Extensions.LogExtensions;
 
-namespace Net.Shared.Background.Core.Base;
+namespace Net.Shared.Background.Base;
 
-public abstract class BackgroundServiceBase : BackgroundService
+public abstract class NetSharedBackgroundService : BackgroundService
 {
     private int _count;
     private const int Limit = 5_000;
@@ -21,7 +21,7 @@ public abstract class BackgroundServiceBase : BackgroundService
     private readonly ILogger _logger;
     private readonly IBackgroundTaskService _taskService;
 
-    protected BackgroundServiceBase(IOptionsMonitor<BackgroundTaskSection> options, ILogger logger, IBackgroundTaskService taskService)
+    protected NetSharedBackgroundService(IOptionsMonitor<BackgroundTaskSection> options, ILogger logger, IBackgroundTaskService taskService)
     {
         _tasks = options.CurrentValue.Tasks;
         options.OnChange(x => _tasks = x.Tasks);
