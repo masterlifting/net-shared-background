@@ -1,8 +1,7 @@
 ﻿using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-
-using Net.Shared.Background.Abstractions.Interfaces;
+using Net.Shared.Background.Abstractions;
 using Net.Shared.Background.Exceptions;
 using Net.Shared.Background.Models.Settings;
 using Net.Shared.Background.Schedulers;

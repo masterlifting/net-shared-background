@@ -1,6 +1,6 @@
 ﻿using Net.Shared.Exceptions;
 
-namespace Net.Shared.Background.Exceptions;
+namespace Net.Shared.Background.Models.Exceptions;
 
 public sealed class NetSharedBackgroundException : NetSharedException
 {

@@ -1,6 +1,6 @@
 ﻿using Net.Shared.Background.Models.Settings;
 
-namespace Net.Shared.Background.Abstractions.Interfaces;
+namespace Net.Shared.Background.Abstractions;
 
 public interface IBackgroundTaskService
 {

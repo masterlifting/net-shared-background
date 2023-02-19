@@ -25,7 +25,7 @@ public abstract class PullingBackgroundTask : NetSharedBackgroundTask
     public PullingBackgroundTask(
         ILogger logger
         , IPersistenceRepository<IPersistentProcess> processRepository
-        , IPersistenceRepository<IProcessStep> catalogRepository
+        , IPersistenceRepository<IPersistentProcessStep> catalogRepository
         , BackgroundTaskStepHandler handler) : base(logger, catalogRepository)
     {
         _logger = logger;
@@ -33,7 +33,7 @@ public abstract class PullingBackgroundTask : NetSharedBackgroundTask
         _handler = handler;
     }
 
-    internal override async Task SuccessivelyHandleStepsAsync(Queue<IProcessStep> steps, string taskName, int taskCount, BackgroundTaskSettings settings, CancellationToken cToken)
+    internal override async Task SuccessivelyHandleStepsAsync(Queue<IPersistentProcessStep> steps, string taskName, int taskCount, BackgroundTaskSettings settings, CancellationToken cToken)
     {
         for (var i = 0; i <= steps.Count; i++)
         {
@@ -56,13 +56,13 @@ public abstract class PullingBackgroundTask : NetSharedBackgroundTask
             }
         }
     }
-    internal override Task ParallelHandleStepsAsync(ConcurrentQueue<IProcessStep> steps, string taskName, int taskCount, BackgroundTaskSettings settings, CancellationToken cToken)
+    internal override Task ParallelHandleStepsAsync(ConcurrentQueue<IPersistentProcessStep> steps, string taskName, int taskCount, BackgroundTaskSettings settings, CancellationToken cToken)
     {
         var tasks = Enumerable.Range(0, steps.Count).Select(x => ParallelHandleStepAsync(steps, taskName, taskCount, settings, cToken));
         return Task.WhenAll(tasks);
     }
 
-    private async Task ParallelHandleStepAsync(ConcurrentQueue<IProcessStep> steps, string taskName, int taskCount, BackgroundTaskSettings settings, CancellationToken cToken)
+    private async Task ParallelHandleStepAsync(ConcurrentQueue<IPersistentProcessStep> steps, string taskName, int taskCount, BackgroundTaskSettings settings, CancellationToken cToken)
     {
         var isDequeue = steps.TryDequeue(out var step);
 
@@ -88,7 +88,7 @@ public abstract class PullingBackgroundTask : NetSharedBackgroundTask
             _logger.LogError(new NetSharedBackgroundException(exception));
         }
     }
-    private async Task<IReadOnlyCollection<IPersistentProcess>> HandleDataAsync(IProcessStep step, string taskName, string action, bool isParallel, CancellationToken cToken)
+    private async Task<IReadOnlyCollection<IPersistentProcess>> HandleDataAsync(IPersistentProcessStep step, string taskName, string action, bool isParallel, CancellationToken cToken)
     {
         try
         {

@@ -12,7 +12,7 @@ using Net.Shared.Persistence.Abstractions.Repositories;
 using System.Collections.Concurrent;
 
 using static Net.Shared.Background.Constants;
-using static Net.Shared.Persistence.Abstractions.Constants.Enums;
+using static Net.Shared.Persistence.Models.Constants.Enums;
 
 namespace Net.Shared.Background.BackgroundTasks;
 
@@ -21,21 +21,21 @@ public abstract class ProcessingBackgroundTask : NetSharedBackgroundTask
     private readonly SemaphoreSlim _semaphore = new(1);
 
     private readonly ILogger _logger;
-    private readonly IPersistenceRepository<IPersistentProcess> _repository;
+    private readonly IPersistenceRepository<IPersistentProcess> _processRepository;
     private readonly BackgroundTaskStepHandler _handler;
 
     protected ProcessingBackgroundTask(
         ILogger logger
         , IPersistenceRepository<IPersistentProcess> processRepository
-        , IPersistenceRepository<IProcessStep> catalogRepository
-        , BackgroundTaskStepHandler handler) : base(logger, catalogRepository)
+        , IPersistenceRepository<IPersistentProcessStep> processStepRepository
+        , BackgroundTaskStepHandler handler) : base(logger, processStepRepository)
     {
         _logger = logger;
-        _repository = processRepository;
+        _processRepository = processRepository;
         _handler = handler;
     }
 
-    internal override async Task SuccessivelyHandleStepsAsync(Queue<IProcessStep> steps, string taskName, int taskCount, BackgroundTaskSettings settings, CancellationToken cToken)
+    internal override async Task SuccessivelyHandleStepsAsync(Queue<IPersistentProcessStep> steps, string taskName, int taskCount, BackgroundTaskSettings settings, CancellationToken cToken)
     {
         for (var i = 0; i <= steps.Count; i++)
         {
@@ -60,13 +60,13 @@ public abstract class ProcessingBackgroundTask : NetSharedBackgroundTask
                     foreach (var entity in processableData.Where(x => x.ProcessStatusId == (int)ProcessStatuses.Processed))
                         entity.ProcessStatusId = (int)ProcessStatuses.Ready;
 
-                    await _repository.Writer.SaveProcessableAsync(nextStep, processableData, cToken);
+                    await _processRepository.Writer.SaveProcessableAsync(nextStep, processableData, cToken);
 
                     _logger.LogDebug(taskName, action, Actions.StopSavingData, $"The next step: '{nextStep!.Name}'");
                 }
                 else
                 {
-                    await _repository.Writer.SaveProcessableAsync(null, processableData, cToken);
+                    await _processRepository.Writer.SaveProcessableAsync(null, processableData, cToken);
 
                     _logger.LogDebug(taskName, action, Actions.StopSavingData);
                 }
@@ -77,13 +77,13 @@ public abstract class ProcessingBackgroundTask : NetSharedBackgroundTask
             }
         }
     }
-    internal override Task ParallelHandleStepsAsync(ConcurrentQueue<IProcessStep> steps, string taskName, int taskCount, BackgroundTaskSettings settings, CancellationToken cToken)
+    internal override Task ParallelHandleStepsAsync(ConcurrentQueue<IPersistentProcessStep> steps, string taskName, int taskCount, BackgroundTaskSettings settings, CancellationToken cToken)
     {
         var tasks = Enumerable.Range(0, steps.Count).Select(x => ParallelHandleStepAsync(steps, taskName, taskCount, settings, cToken));
         return Task.WhenAll(tasks);
     }
 
-    private async Task ParallelHandleStepAsync(ConcurrentQueue<IProcessStep> steps, string taskName, int taskCount, BackgroundTaskSettings settings, CancellationToken cToken)
+    private async Task ParallelHandleStepAsync(ConcurrentQueue<IPersistentProcessStep> steps, string taskName, int taskCount, BackgroundTaskSettings settings, CancellationToken cToken)
     {
         var isDequeue = steps.TryDequeue(out var step);
 
@@ -104,7 +104,7 @@ public abstract class ProcessingBackgroundTask : NetSharedBackgroundTask
             _logger.LogTrace(taskName, action, Actions.StartSavingData);
 
             await _semaphore.WaitAsync();
-            await _repository.Writer.SaveProcessableAsync(null, processableData, cToken);
+            await _processRepository.Writer.SaveProcessableAsync(null, processableData, cToken);
             _semaphore.Release();
 
             _logger.LogDebug(taskName, action, Actions.StopSavingData);
@@ -115,13 +115,13 @@ public abstract class ProcessingBackgroundTask : NetSharedBackgroundTask
         }
     }
 
-    private async Task<IPersistentProcess[]> GetProcessableAsync(IProcessStep step, string taskName, string action, int taskCount, BackgroundTaskSettings settings, CancellationToken cToken)
+    private async Task<IPersistentProcess[]> GetProcessableAsync(IPersistentProcessStep step, string taskName, string action, int taskCount, BackgroundTaskSettings settings, CancellationToken cToken)
     {
         try
         {
             _logger.LogTrace(taskName, action, Actions.StartGettingProcessableData);
 
-            var result = await _repository.Reader.GetProcessableAsync<IPersistentProcess>(step, settings.Steps.ProcessingMaxCount, cToken);
+            var result = await _processRepository.Reader.GetProcessableAsync<IPersistentProcess>(step, settings.Steps.ProcessingMaxCount, cToken);
 
             if (settings.RetryPolicy is not null && taskCount % settings.RetryPolicy.EveryTime == 0)
             {
@@ -130,7 +130,7 @@ public abstract class ProcessingBackgroundTask : NetSharedBackgroundTask
                 var retryTime = TimeOnly.Parse(settings.Scheduler.WorkTime).ToTimeSpan() * settings.RetryPolicy.EveryTime;
                 var retryDate = DateTime.UtcNow.Add(-retryTime);
 
-                var unprocessableResult = await _repository.Reader.GetUnprocessableAsync<IPersistentProcess>(step, settings.Steps.ProcessingMaxCount, retryDate, settings.RetryPolicy.MaxAttempts, cToken);
+                var unprocessableResult = await _processRepository.Reader.GetUnprocessableAsync<IPersistentProcess>(step, settings.Steps.ProcessingMaxCount, retryDate, settings.RetryPolicy.MaxAttempts, cToken);
 
                 if (unprocessableResult.Any())
                     result = result.Concat(unprocessableResult).ToArray();
@@ -145,7 +145,7 @@ public abstract class ProcessingBackgroundTask : NetSharedBackgroundTask
             throw new NetSharedBackgroundException(exception);
         }
     }
-    private async Task HandleDataAsync(IProcessStep step, string taskName, string action, IPersistentProcess[] data, bool isParallel, CancellationToken cToken)
+    private async Task HandleDataAsync(IPersistentProcessStep step, string taskName, string action, IPersistentProcess[] data, bool isParallel, CancellationToken cToken)
     {
         try
         {

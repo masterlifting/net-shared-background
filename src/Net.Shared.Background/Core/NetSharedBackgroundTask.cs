@@ -12,12 +12,12 @@ namespace Net.Shared.Background.Base;
 public abstract class NetSharedBackgroundTask
 {
     private readonly ILogger _logger;
-    private readonly IPersistenceRepository<IProcessStep> _repository;
+    private readonly IPersistenceRepository<IPersistentProcessStep> _processStepRepository;
 
-    protected NetSharedBackgroundTask(ILogger logger, IPersistenceRepository<IProcessStep> repository)
+    protected NetSharedBackgroundTask(ILogger logger, IPersistenceRepository<IPersistentProcessStep> processStepRepository)
     {
         _logger = logger;
-        _repository = repository;
+        _processStepRepository = processStepRepository;
     }
 
     public async Task StartAsync(string taskName, int taskCount, BackgroundTaskSettings settings, CancellationToken cToken)
@@ -27,15 +27,15 @@ public abstract class NetSharedBackgroundTask
         _logger.LogTrace(taskName, $"Run №{taskCount}", $"Steps: {steps.Count}. As parallel: {settings.Steps.IsParallelProcessing}");
 
         if (settings.Steps.IsParallelProcessing)
-            await ParallelHandleStepsAsync(new ConcurrentQueue<IProcessStep>(steps), taskName, taskCount, settings, cToken);
+            await ParallelHandleStepsAsync(new ConcurrentQueue<IPersistentProcessStep>(steps), taskName, taskCount, settings, cToken);
         else
             await SuccessivelyHandleStepsAsync(steps, taskName, taskCount, settings, cToken);
     }
 
-    internal async Task<Queue<IProcessStep>> GetQueueProcessStepsAsync(string[] configurationSteps)
+    internal async Task<Queue<IPersistentProcessStep>> GetQueueProcessStepsAsync(string[] configurationSteps)
     {
-        var result = new Queue<IProcessStep>(configurationSteps.Length);
-        var dbStepNames = await _repository.Reader.GetCatalogsDictionaryByNameAsync<IProcessStep>();
+        var result = new Queue<IPersistentProcessStep>(configurationSteps.Length);
+        var dbStepNames = await _processStepRepository.Reader.GetCatalogsDictionaryByNameAsync<IPersistentProcessStep>();
 
         foreach (var configurationStepName in configurationSteps)
             if (dbStepNames.ContainsKey(configurationStepName))
@@ -46,6 +46,6 @@ public abstract class NetSharedBackgroundTask
         return result;
     }
 
-    internal abstract Task SuccessivelyHandleStepsAsync(Queue<IProcessStep> steps, string taskName, int taskCount, BackgroundTaskSettings settings, CancellationToken cToken);
-    internal abstract Task ParallelHandleStepsAsync(ConcurrentQueue<IProcessStep> steps, string taskName, int taskCount, BackgroundTaskSettings settings, CancellationToken cToken);
+    internal abstract Task SuccessivelyHandleStepsAsync(Queue<IPersistentProcessStep> steps, string taskName, int taskCount, BackgroundTaskSettings settings, CancellationToken cToken);
+    internal abstract Task ParallelHandleStepsAsync(ConcurrentQueue<IPersistentProcessStep> steps, string taskName, int taskCount, BackgroundTaskSettings settings, CancellationToken cToken);
 }

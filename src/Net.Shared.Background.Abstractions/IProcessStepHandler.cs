@@ -1,6 +1,6 @@
 ﻿using Net.Shared.Persistence.Abstractions.Entities;
 
-namespace Net.Shared.Background.Abstractions.Interfaces;
+namespace Net.Shared.Background.Abstractions;
 
 public interface IProcessStepHandler
 {

@@ -1,6 +1,5 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
-
-using Net.Shared.Background.Abstractions.Interfaces;
+using Net.Shared.Background.Abstractions;
 using Net.Shared.Background.Models.Settings;
 
 namespace Net.Shared.Background.Base;
