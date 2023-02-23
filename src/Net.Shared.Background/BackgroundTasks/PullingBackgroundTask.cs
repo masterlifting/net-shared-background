@@ -1,7 +1,8 @@
 ﻿using Microsoft.Extensions.Logging;
+
 using Net.Shared.Background.Base;
-using Net.Shared.Background.Exceptions;
 using Net.Shared.Background.Handlers;
+using Net.Shared.Background.Models.Exceptions;
 using Net.Shared.Background.Models.Settings;
 using Net.Shared.Extensions;
 using Net.Shared.Persistence.Abstractions.Entities;
@@ -10,7 +11,7 @@ using Net.Shared.Persistence.Abstractions.Repositories;
 
 using System.Collections.Concurrent;
 
-using static Net.Shared.Background.Constants;
+using static Net.Shared.Background.Models.Constants.BackgroundTaskActions;
 
 namespace Net.Shared.Background.BackgroundTasks;
 
@@ -20,13 +21,13 @@ public abstract class PullingBackgroundTask : NetSharedBackgroundTask
 
     private readonly ILogger _logger;
     private readonly IPersistenceRepository<IPersistentProcess> _repository;
-    private readonly BackgroundTaskStepHandler _handler;
+    private readonly BackgroundTaskHandler<IPersistentProcess> _handler;
 
     public PullingBackgroundTask(
         ILogger logger
         , IPersistenceRepository<IPersistentProcess> processRepository
         , IPersistenceRepository<IPersistentProcessStep> catalogRepository
-        , BackgroundTaskStepHandler handler) : base(logger, catalogRepository)
+        , BackgroundTaskHandler<IPersistentProcess> handler) : base(logger, catalogRepository)
     {
         _logger = logger;
         _repository = processRepository;
@@ -44,11 +45,11 @@ public abstract class PullingBackgroundTask : NetSharedBackgroundTask
 
             try
             {
-                _logger.LogTrace(taskName, action, Actions.StartSavingData);
+                _logger.LogTrace(taskName, action, StartSavingData);
 
                 await _repository.Writer.SaveProcessableAsync(null, entities, cToken);
 
-                _logger.LogDebug(taskName, action, Actions.StopSavingData);
+                _logger.LogDebug(taskName, action, StopSavingData);
             }
             catch (Exception exception)
             {
@@ -75,13 +76,13 @@ public abstract class PullingBackgroundTask : NetSharedBackgroundTask
 
         try
         {
-            _logger.LogTrace(taskName, action, Actions.StartSavingData);
+            _logger.LogTrace(taskName, action, StartSavingData);
 
             await _semaphore.WaitAsync();
             await _repository.Writer.SaveProcessableAsync(null, entities, cToken);
             _semaphore.Release();
 
-            _logger.LogDebug(taskName, action, Actions.StopSavingData);
+            _logger.LogDebug(taskName, action, StopSavingData);
         }
         catch (Exception exception)
         {
@@ -94,18 +95,18 @@ public abstract class PullingBackgroundTask : NetSharedBackgroundTask
         {
             IReadOnlyCollection<IPersistentProcess> entities;
 
-            _logger.LogTrace(taskName, action, Actions.StartHandlingData);
+            _logger.LogTrace(taskName, action, StartHandlingData);
 
             if (!isParallel)
-                entities = await _handler.HandleProcessableStepAsync(step, cToken);
+                entities = await _handler.HandleStep(step, cToken);
             else
             {
                 await _semaphore.WaitAsync();
-                entities = await _handler.HandleProcessableStepAsync(step, cToken);
+                entities = await _handler.HandleStep(step, cToken);
                 _semaphore.Release();
             }
 
-            _logger.LogDebug(taskName, action, Actions.StopHandlingData);
+            _logger.LogDebug(taskName, action, StopHandlingData);
 
             return entities;
         }

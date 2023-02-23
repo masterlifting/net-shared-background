@@ -1,8 +1,8 @@
 ﻿using Microsoft.Extensions.Logging;
 
 using Net.Shared.Background.Base;
-using Net.Shared.Background.Exceptions;
 using Net.Shared.Background.Handlers;
+using Net.Shared.Background.Models.Exceptions;
 using Net.Shared.Background.Models.Settings;
 using Net.Shared.Extensions;
 using Net.Shared.Persistence.Abstractions.Entities;
@@ -11,7 +11,7 @@ using Net.Shared.Persistence.Abstractions.Repositories;
 
 using System.Collections.Concurrent;
 
-using static Net.Shared.Background.Constants;
+using static Net.Shared.Background.Models.Constants.BackgroundTaskActions;
 using static Net.Shared.Persistence.Models.Constants.Enums;
 
 namespace Net.Shared.Background.BackgroundTasks;
@@ -22,13 +22,13 @@ public abstract class ProcessingBackgroundTask : NetSharedBackgroundTask
 
     private readonly ILogger _logger;
     private readonly IPersistenceRepository<IPersistentProcess> _processRepository;
-    private readonly BackgroundTaskStepHandler _handler;
+    private readonly BackgroundTaskHandler<IPersistentProcess> _handler;
 
     protected ProcessingBackgroundTask(
         ILogger logger
         , IPersistenceRepository<IPersistentProcess> processRepository
         , IPersistenceRepository<IPersistentProcessStep> processStepRepository
-        , BackgroundTaskStepHandler handler) : base(logger, processStepRepository)
+        , BackgroundTaskHandler<IPersistentProcess> handler) : base(logger, processStepRepository)
     {
         _logger = logger;
         _processRepository = processRepository;
@@ -53,7 +53,7 @@ public abstract class ProcessingBackgroundTask : NetSharedBackgroundTask
 
             try
             {
-                _logger.LogTrace(taskName, action, Actions.StartSavingData);
+                _logger.LogTrace(taskName, action, StartSavingData);
 
                 if (isNextStep)
                 {
@@ -62,13 +62,13 @@ public abstract class ProcessingBackgroundTask : NetSharedBackgroundTask
 
                     await _processRepository.Writer.SaveProcessableAsync(nextStep, processableData, cToken);
 
-                    _logger.LogDebug(taskName, action, Actions.StopSavingData, $"The next step: '{nextStep!.Name}'");
+                    _logger.LogDebug(taskName, action, StopSavingData, $"The next step: '{nextStep!.Name}'");
                 }
                 else
                 {
                     await _processRepository.Writer.SaveProcessableAsync(null, processableData, cToken);
 
-                    _logger.LogDebug(taskName, action, Actions.StopSavingData);
+                    _logger.LogDebug(taskName, action, StopSavingData);
                 }
             }
             catch (Exception exception)
@@ -101,13 +101,13 @@ public abstract class ProcessingBackgroundTask : NetSharedBackgroundTask
 
         try
         {
-            _logger.LogTrace(taskName, action, Actions.StartSavingData);
+            _logger.LogTrace(taskName, action, StartSavingData);
 
             await _semaphore.WaitAsync();
             await _processRepository.Writer.SaveProcessableAsync(null, processableData, cToken);
             _semaphore.Release();
 
-            _logger.LogDebug(taskName, action, Actions.StopSavingData);
+            _logger.LogDebug(taskName, action, StopSavingData);
         }
         catch (Exception exception)
         {
@@ -119,13 +119,13 @@ public abstract class ProcessingBackgroundTask : NetSharedBackgroundTask
     {
         try
         {
-            _logger.LogTrace(taskName, action, Actions.StartGettingProcessableData);
+            _logger.LogTrace(taskName, action, StartGettingProcessableData);
 
             var result = await _processRepository.Reader.GetProcessableAsync<IPersistentProcess>(step, settings.Steps.ProcessingMaxCount, cToken);
 
             if (settings.RetryPolicy is not null && taskCount % settings.RetryPolicy.EveryTime == 0)
             {
-                _logger.LogTrace(taskName, action, Actions.StartGettingUnprocessableData);
+                _logger.LogTrace(taskName, action, StartGettingUnprocessableData);
 
                 var retryTime = TimeOnly.Parse(settings.Scheduler.WorkTime).ToTimeSpan() * settings.RetryPolicy.EveryTime;
                 var retryDate = DateTime.UtcNow.Add(-retryTime);
@@ -136,7 +136,7 @@ public abstract class ProcessingBackgroundTask : NetSharedBackgroundTask
                     result = result.Concat(unprocessableResult).ToArray();
             }
 
-            _logger.LogDebug(taskName, action, Actions.StopGettingData, result.Length);
+            _logger.LogDebug(taskName, action, StopGettingData, result.Length);
 
             return result;
         }
@@ -149,21 +149,21 @@ public abstract class ProcessingBackgroundTask : NetSharedBackgroundTask
     {
         try
         {
-            _logger.LogTrace(taskName, action, Actions.StartHandlingData);
+            _logger.LogTrace(taskName, action, StartHandlingData);
 
             if (!isParallel)
-                await _handler.HandleProcessableStepAsync(step, data, cToken);
+                await _handler.HandleStep(step, data, cToken);
             else
             {
                 await _semaphore.WaitAsync();
-                await _handler.HandleProcessableStepAsync(step, data, cToken);
+                await _handler.HandleStep(step, data, cToken);
                 _semaphore.Release();
             }
 
             foreach (var entity in data.Where(x => x.ProcessStatusId != (int)ProcessStatuses.Error))
                 entity.ProcessStatusId = (int)ProcessStatuses.Processed;
 
-            _logger.LogDebug(taskName, action, Actions.StopHandlingData);
+            _logger.LogDebug(taskName, action, StopHandlingData);
         }
         catch (Exception exception)
         {

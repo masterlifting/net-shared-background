@@ -1,6 +1,6 @@
 ﻿using Microsoft.Extensions.Logging;
 
-using Net.Shared.Background.Exceptions;
+using Net.Shared.Background.Models.Exceptions;
 using Net.Shared.Background.Models.Settings;
 using Net.Shared.Persistence.Abstractions.Entities.Catalogs;
 using Net.Shared.Persistence.Abstractions.Repositories;

@@ -6,22 +6,22 @@ namespace Net.Shared.Background.Base;
 
 public sealed class NetSharedBackgroundTaskService<T> : IBackgroundTaskService where T : NetSharedBackgroundTask
 {
-    public string TaskName { get; }
+    public string Name { get; }
 
     private readonly IServiceScopeFactory _scopeFactory;
 
     public NetSharedBackgroundTaskService(IServiceScopeFactory scopeFactory)
     {
-        TaskName = typeof(T).Name;
+        Name = typeof(T).Name;
         _scopeFactory = scopeFactory;
     }
 
-    public async Task RunTaskAsync(int taskCount, BackgroundTaskSettings settings, CancellationToken cToken)
+    public async Task RunAsync(int taskCount, BackgroundTaskSettings settings, CancellationToken cToken)
     {
         await using var scope = _scopeFactory.CreateAsyncScope();
 
         var task = scope.ServiceProvider.GetRequiredService<T>();
 
-        await task.StartAsync(TaskName, taskCount, settings, cToken);
+        await task.StartAsync(Name, taskCount, settings, cToken);
     }
 }

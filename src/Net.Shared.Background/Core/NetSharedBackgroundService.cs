@@ -1,8 +1,9 @@
 ﻿using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+
 using Net.Shared.Background.Abstractions;
-using Net.Shared.Background.Exceptions;
+using Net.Shared.Background.Models.Exceptions;
 using Net.Shared.Background.Models.Settings;
 using Net.Shared.Background.Schedulers;
 
@@ -30,19 +31,19 @@ public abstract class NetSharedBackgroundService : BackgroundService
     }
     protected override async Task ExecuteAsync(CancellationToken cToken)
     {
-        if (_tasks is null || !_tasks.ContainsKey(_taskService.TaskName))
+        if (_tasks is null || !_tasks.ContainsKey(_taskService.Name))
         {
-            _logger.LogWarn($"The configuration was not found for the task '{_taskService.TaskName}.'");
+            _logger.LogWarn($"The configuration was not found for the task '{_taskService.Name}.'");
             await StopAsync(cToken);
             return;
         }
 
-        var settings = _tasks[_taskService.TaskName];
+        var settings = _tasks[_taskService.Name];
         var scheduler = new BackgroundTaskScheduler(settings.Scheduler);
 
         if (!scheduler.IsReady(out var readyInfo))
         {
-            _logger.LogWarn($"The task '{_taskService.TaskName}' wasn't ready because {readyInfo}.");
+            _logger.LogWarn($"The task '{_taskService.Name}' wasn't ready because {readyInfo}.");
             await StopAsync(cToken);
             return;
         }
@@ -54,14 +55,14 @@ public abstract class NetSharedBackgroundService : BackgroundService
         {
             if (scheduler.IsStop(out var stopInfo))
             {
-                _logger.LogWarn($"The task '{_taskService.TaskName}' was stopped because {stopInfo}.");
+                _logger.LogWarn($"The task '{_taskService.Name}' was stopped because {stopInfo}.");
                 await StopAsync(cToken);
                 return;
             }
 
             if (!scheduler.IsStart(out var startInfo))
             {
-                _logger.LogWarn($"The task '{_taskService.TaskName}' wasn't started because {stopInfo}.");
+                _logger.LogWarn($"The task '{_taskService.Name}' wasn't started because {stopInfo}.");
                 continue;
             }
 
@@ -69,7 +70,7 @@ public abstract class NetSharedBackgroundService : BackgroundService
             {
                 _count = 0;
 
-                _logger.LogWarn($"The counter for the task '{_taskService.TaskName}' was reset.");
+                _logger.LogWarn($"The counter for the task '{_taskService.Name}' was reset.");
             }
 
             _count++;
@@ -78,16 +79,16 @@ public abstract class NetSharedBackgroundService : BackgroundService
             {
                 settings.Steps.ProcessingMaxCount = Limit;
 
-                _logger.LogWarn($"The limit of the processing data from the configuration for the task '{_taskService.TaskName}' was exceeded and was set by default: {Limit}.");
+                _logger.LogWarn($"The limit of the processing data from the configuration for the task '{_taskService.Name}' was exceeded and was set by default: {Limit}.");
             }
 
             try
             {
-                _logger.LogTrace($"The task '{_taskService.TaskName}' is starting...");
+                _logger.LogTrace($"The task '{_taskService.Name}' is starting...");
 
-                await _taskService.RunTaskAsync(_count, settings, cToken);
+                await _taskService.RunAsync(_count, settings, cToken);
 
-                _logger.LogTrace($"The task '{_taskService.TaskName}' was done!");
+                _logger.LogTrace($"The task '{_taskService.Name}' was done!");
             }
             catch (NetSharedBackgroundException exception)
             {
@@ -99,7 +100,7 @@ public abstract class NetSharedBackgroundService : BackgroundService
             }
             finally
             {
-                _logger.LogTrace($"The next task '{_taskService.TaskName}' will launch in {settings.Scheduler.WorkTime}.");
+                _logger.LogTrace($"The next task '{_taskService.Name}' will launch in {settings.Scheduler.WorkTime}.");
 
                 if (settings.Scheduler.IsOnce)
                     scheduler.SetOnce();
@@ -108,7 +109,7 @@ public abstract class NetSharedBackgroundService : BackgroundService
     }
     public override async Task StopAsync(CancellationToken cToken)
     {
-        _logger.LogWarn($"The task '{_taskService.TaskName}' was stopped!");
+        _logger.LogWarn($"The task '{_taskService.Name}' was stopped!");
         await base.StopAsync(cToken);
     }
 }

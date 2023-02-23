@@ -1,17 +1,17 @@
 ﻿namespace Net.Shared.Background.Models;
 
-internal static class Constants
+public static class Constants
 {
-    internal static class Actions
+    public static class BackgroundTaskActions
     {
-        internal const string StartGettingProcessableData = "Start getting processable data";
-        internal const string StartGettingUnprocessableData = "Start getting processable data";
-        internal const string StopGettingData = "Stop getting data";
-
-        internal const string StartHandlingData = "Start handling data";
-        internal const string StopHandlingData = "Stop handling data";
-
-        internal const string StartSavingData = "Start saving data";
-        internal const string StopSavingData = "Stop saving data";
+        public const string StartGettingProcessableData = "Start getting processable data.";
+        public const string StartGettingUnprocessableData = "Start getting unprocessable data.";
+        public const string StopGettingData = "Stop getting data.";
+        
+        public const string StartHandlingData = "Start handling data.";
+        public const string StopHandlingData = "Stop handling data.";
+        
+        public const string StartSavingData = "Start saving data.";
+        public const string StopSavingData = "Stop saving data.";
     }
 }
