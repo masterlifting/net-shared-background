@@ -7,9 +7,7 @@ using Net.Shared.Background.Models.Exceptions;
 using Net.Shared.Background.Models.Settings;
 using Net.Shared.Background.Schedulers;
 
-using static Net.Shared.Extensions.LogExtensions;
-
-namespace Net.Shared.Background.Base;
+namespace Net.Shared.Background.Core;
 
 public abstract class NetSharedBackgroundService : BackgroundService
 {
@@ -86,7 +84,7 @@ public abstract class NetSharedBackgroundService : BackgroundService
             {
                 _logger.LogTrace($"The task '{_taskService.Name}' is starting...");
 
-                await _taskService.RunAsync(_count, settings, cToken);
+                await _taskService.Run(_count, settings, cToken);
 
                 _logger.LogTrace($"The task '{_taskService.Name}' was done!");
             }

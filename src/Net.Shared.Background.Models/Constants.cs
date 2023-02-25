@@ -4,14 +4,14 @@ public static class Constants
 {
     public static class BackgroundTaskActions
     {
-        public const string StartGettingProcessableData = "Start getting processable data.";
-        public const string StartGettingUnprocessableData = "Start getting unprocessable data.";
-        public const string StopGettingData = "Stop getting data.";
-        
-        public const string StartHandlingData = "Start handling data.";
-        public const string StopHandlingData = "Stop handling data.";
-        
-        public const string StartSavingData = "Start saving data.";
-        public const string StopSavingData = "Stop saving data.";
+        public static string StartGettingProcessableData(string taskName) => $"Start getting processable data for the task: {taskName}.";
+        public static string StartGettingUnprocessableData(string taskName) => $"Start getting unprocessable data for the task: {taskName}.";
+        public static string StopGettingData(string taskName) => $"Stop getting data for the task: {taskName}.";
+                 
+        public static string StartHandlingData(string taskName) => $"Start handling data for the task: {taskName}.";
+        public static string StopHandlingData(string taskName) => $"Stop handling data for the task: {taskName}.";
+                 
+        public static string StartSavingData(string taskName) => $"Start saving data for the task: {taskName}.";
+        public static string StopSavingData(string taskName) => $"Stop saving data for the task: {taskName}.";
     }
 }

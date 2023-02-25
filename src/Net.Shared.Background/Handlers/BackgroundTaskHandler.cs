@@ -5,15 +5,15 @@ using Net.Shared.Persistence.Abstractions.Entities.Catalogs;
 
 namespace Net.Shared.Background.Handlers;
 
-public sealed class BackgroundTaskHandler<T> where T : IPersistentProcess
+public sealed class BackgroundTaskHandler<TProcess> where TProcess : IPersistentProcess
 {
-    private readonly Dictionary<IPersistentProcessStep, IBackgroundTaskHandler<T>> _handlers;
-    public BackgroundTaskHandler(Dictionary<IPersistentProcessStep, IBackgroundTaskHandler<T>> handlers) => _handlers = handlers;
+    private readonly Dictionary<int, IBackgroundTaskHandler<TProcess>> _handlers;
+    public BackgroundTaskHandler(Dictionary<int, IBackgroundTaskHandler<TProcess>> handlers) => _handlers = handlers;
 
-    public Task HandleStep(IPersistentProcessStep step, IEnumerable<T> data, CancellationToken cToken = default) => _handlers.TryGetValue(step, out var handler) 
+    public Task HandleStep(IPersistentProcessStep step, IEnumerable<TProcess> data, CancellationToken cToken = default) => _handlers.TryGetValue(step.Id, out var handler)
         ? handler.Handle(data, cToken)
         : throw new NetSharedBackgroundException($"The step: '{step.Name}' is not implemented.");
-    public Task<IReadOnlyCollection<T>> HandleStep(IPersistentProcessStep step, CancellationToken cToken = default)  => _handlers.TryGetValue(step, out var andler) 
+    public Task<IReadOnlyCollection<TProcess>> HandleStep(IPersistentProcessStep step, CancellationToken cToken = default) => _handlers.TryGetValue(step.Id, out var andler)
         ? andler.Handle(cToken)
         : throw new NetSharedBackgroundException($"The step: '{step.Name}' is not implemented.");
 }
