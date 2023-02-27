@@ -4,6 +4,6 @@ namespace Net.Shared.Background.Abstractions;
 
 public interface IBackgroundTaskService
 {
-    public string TaskName { get; }
-    Task RunTaskAsync(int taskCount, BackgroundTaskSettings settings, CancellationToken cToken);
+    public string Name { get; }
+    Task Run(int iterator, BackgroundTaskSettings settings, CancellationToken cToken = default);
 }
