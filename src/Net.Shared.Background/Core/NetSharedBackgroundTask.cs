@@ -1,11 +1,10 @@
-﻿using Microsoft.Extensions.Logging;
-
-using Net.Shared.Background.Exceptions;
+﻿using System.Collections.Concurrent;
+using Microsoft.Extensions.Logging;
+using Net.Shared.Background.Models.Exceptions;
 using Net.Shared.Background.Models.Settings;
+using Net.Shared.Extensions;
 using Net.Shared.Persistence.Abstractions.Entities.Catalogs;
 using Net.Shared.Persistence.Abstractions.Repositories;
-
-using System.Collections.Concurrent;
 
 namespace Net.Shared.Background.Base;
 
@@ -38,10 +37,12 @@ public abstract class NetSharedBackgroundTask
         var dbStepNames = await _processStepRepository.Reader.GetCatalogsDictionaryByNameAsync<IPersistentProcessStep>();
 
         foreach (var configurationStepName in configurationSteps)
-            if (dbStepNames.ContainsKey(configurationStepName))
-                result.Enqueue(dbStepNames[configurationStepName]);
+        {
+            if (dbStepNames.TryGetValue(configurationStepName, out var value))
+                result.Enqueue(value);
             else
                 throw new NetSharedBackgroundException($"The step '{configurationStepName}' from configuration was not found in the database");
+        }
 
         return result;
     }
