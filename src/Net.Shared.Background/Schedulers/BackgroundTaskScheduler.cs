@@ -33,8 +33,10 @@ namespace Net.Shared.Background.Schedulers
                 WorkDays = new List<DayOfWeek>(workDays.Length);
 
                 foreach (var number in workDays)
+                {
                     if (Enum.TryParse<DayOfWeek>(number.Trim(), out var workDay))
                         WorkDays.Add(workDay);
+                }
             }
         }
 
@@ -75,7 +77,7 @@ namespace Net.Shared.Background.Schedulers
             info = string.Empty;
             var now = DateTime.UtcNow;
 
-            if (_settings.DateTimeStop.HasValue && _settings.DateTimeStop.Value < now)
+            if (_settings.DateTimeStop < now)
             {
                 info = $"the task's stopping time '{nameof(_settings.DateTimeStop)}: {_settings.DateTimeStop: yyyy-MM-dd HH:mm:ss}' has come";
                 return true;

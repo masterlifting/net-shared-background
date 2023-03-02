@@ -1,5 +1,5 @@
-﻿using Microsoft.Extensions.Logging;
-
+﻿using System.Collections.Concurrent;
+using Microsoft.Extensions.Logging;
 using Net.Shared.Background.Core;
 using Net.Shared.Background.Handlers;
 using Net.Shared.Background.Models.Exceptions;
@@ -7,9 +7,6 @@ using Net.Shared.Background.Models.Settings;
 using Net.Shared.Persistence.Abstractions.Entities;
 using Net.Shared.Persistence.Abstractions.Entities.Catalogs;
 using Net.Shared.Persistence.Abstractions.Repositories;
-
-using System.Collections.Concurrent;
-
 using static Net.Shared.Background.Models.Constants.BackgroundTaskActions;
 
 namespace Net.Shared.Background.BackgroundTasks;
@@ -24,7 +21,7 @@ public abstract class PullingBackgroundTask<TProcess, TProcessStep> : NetSharedB
     private readonly IPersistenceRepository<TProcess> _repository;
     private readonly BackgroundTaskHandler<TProcess> _handler;
 
-    public PullingBackgroundTask(
+    protected PullingBackgroundTask(
         ILogger logger
         , IPersistenceRepository<TProcess> processRepository
         , IPersistenceRepository<TProcessStep> catalogRepository
@@ -47,7 +44,7 @@ public abstract class PullingBackgroundTask<TProcess, TProcessStep> : NetSharedB
             {
                 _logger.LogTrace(StartSavingData(taskName));
 
-                await _repository.Writer.SaveProcessable<TProcess>(null, entities, cToken);
+                await _repository.Writer.SaveProcessable(null, entities, cToken);
 
                 _logger.LogDebug(StopSavingData(taskName));
             }
@@ -59,7 +56,7 @@ public abstract class PullingBackgroundTask<TProcess, TProcessStep> : NetSharedB
     }
     internal override Task HandleStepsParallel(ConcurrentQueue<TProcessStep> steps, string taskName, int taskCount, BackgroundTaskSettings settings, CancellationToken cToken)
     {
-        var tasks = Enumerable.Range(0, steps.Count).Select(x => HandleStepParallel(taskName, taskCount, steps, settings, cToken));
+        var tasks = Enumerable.Range(0, steps.Count).Select(_ => HandleStepParallel(taskName, taskCount, steps, settings, cToken));
         return Task.WhenAll(tasks);
     }
 
@@ -77,9 +74,9 @@ public abstract class PullingBackgroundTask<TProcess, TProcessStep> : NetSharedB
             _logger.LogTrace(StartSavingData(taskName));
 
             await _semaphore.WaitAsync(cToken);
-            
+
             await _repository.Writer.SaveProcessable(null, entities, cToken);
-            
+
             _semaphore.Release();
 
             _logger.LogDebug(StopSavingData(taskName));
@@ -98,13 +95,15 @@ public abstract class PullingBackgroundTask<TProcess, TProcessStep> : NetSharedB
             _logger.LogTrace(StartHandlingData(taskName));
 
             if (!isParallel)
+            {
                 entities = await _handler.HandleStep(step, cToken);
+            }
             else
             {
                 await _semaphore.WaitAsync(cToken);
 
                 entities = await _handler.HandleStep(step, cToken);
-                
+
                 _semaphore.Release();
             }
 

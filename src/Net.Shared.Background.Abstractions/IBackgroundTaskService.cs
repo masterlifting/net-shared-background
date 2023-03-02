@@ -4,6 +4,6 @@ namespace Net.Shared.Background.Abstractions;
 
 public interface IBackgroundTaskService
 {
-    public string Name { get; }
-    Task Run(int iterator, BackgroundTaskSettings settings, CancellationToken cToken = default);
+    public string TaskName { get; }
+    Task StartTask(int iterator, BackgroundTaskSettings settings, CancellationToken cToken = default);
 }

@@ -1,9 +1,7 @@
 using System.Collections.Concurrent;
-using System.Collections.Concurrent;
 using Microsoft.Extensions.Logging;
 using Net.Shared.Background.Models.Exceptions;
 using Net.Shared.Background.Models.Settings;
-using Net.Shared.Extensions;
 using Net.Shared.Persistence.Abstractions.Entities.Catalogs;
 using Net.Shared.Persistence.Abstractions.Repositories;
 
@@ -37,13 +35,15 @@ public abstract class NetSharedBackgroundTask<TProcessStep> where TProcessStep :
     private async Task<Queue<TProcessStep>> GetQueueProcessSteps(BackgroundTaskSettings settings)
     {
         var result = new Queue<TProcessStep>(settings.Steps.Names.Length);
-        var dbStepNames = await _processStepRepository.Reader.GetCatalogsDictionaryByNameAsync<TProcessStep>();
+        var stepNames = await _processStepRepository.Reader.GetCatalogsDictionaryByNameAsync<TProcessStep>();
 
         foreach (var stepName in settings.Steps.Names)
-            if (dbStepNames.TryGetValue(stepName, out var step))
+        {
+            if (stepNames.TryGetValue(stepName, out var step))
                 result.Enqueue(step);
             else
                 throw new NetSharedBackgroundException($"The step '{stepName}' from configuration was not found in the database");
+        }
 
         return result;
     }

@@ -1,5 +1,5 @@
-﻿using Microsoft.Extensions.Logging;
-
+﻿using System.Collections.Concurrent;
+using Microsoft.Extensions.Logging;
 using Net.Shared.Background.Core;
 using Net.Shared.Background.Handlers;
 using Net.Shared.Background.Models.Exceptions;
@@ -7,9 +7,6 @@ using Net.Shared.Background.Models.Settings;
 using Net.Shared.Persistence.Abstractions.Entities;
 using Net.Shared.Persistence.Abstractions.Entities.Catalogs;
 using Net.Shared.Persistence.Abstractions.Repositories;
-
-using System.Collections.Concurrent;
-
 using static Net.Shared.Background.Models.Constants.BackgroundTaskActions;
 using static Net.Shared.Persistence.Models.Constants.Enums;
 
@@ -44,7 +41,7 @@ public abstract class ProcessingBackgroundTask<TProcess, TProcessStep> : NetShar
 
             var action = step.Description ?? step.Name;
 
-            var processableData = await GetProcessable(taskName, taskCount, step , settings, cToken);
+            var processableData = await GetProcessable(taskName, taskCount, step, settings, cToken);
 
             if (!processableData.Any())
                 continue;
@@ -81,7 +78,7 @@ public abstract class ProcessingBackgroundTask<TProcess, TProcessStep> : NetShar
     }
     internal override Task HandleStepsParallel(ConcurrentQueue<TProcessStep> steps, string taskName, int taskCount, BackgroundTaskSettings settings, CancellationToken cToken)
     {
-        var tasks = Enumerable.Range(0, steps.Count).Select(x => HandleStepParallel(steps, taskName, taskCount, settings, cToken));
+        var tasks = Enumerable.Range(0, steps.Count).Select(_ => HandleStepParallel(steps, taskName, taskCount, settings, cToken));
         return Task.WhenAll(tasks);
     }
 
@@ -92,12 +89,12 @@ public abstract class ProcessingBackgroundTask<TProcess, TProcessStep> : NetShar
         if (steps.Any() && !isDequeue)
             await HandleStepParallel(steps, taskName, taskCount, settings, cToken);
 
-        var processableData = await GetProcessable(taskName, taskCount, step, settings, cToken);
+        var processableData = await GetProcessable(taskName, taskCount, step!, settings, cToken);
 
         if (!processableData.Any())
             return;
 
-        await HandleData(taskName, step, processableData, settings.Steps.IsParallelProcessing, cToken);
+        await HandleData(taskName, step!, processableData, settings.Steps.IsParallelProcessing, cToken);
 
         try
         {
@@ -106,7 +103,7 @@ public abstract class ProcessingBackgroundTask<TProcess, TProcessStep> : NetShar
             await _semaphore.WaitAsync(cToken);
 
             await _processRepository.Writer.SaveProcessable(null, processableData, cToken);
-            
+
             _semaphore.Release();
 
             _logger.LogDebug(StopSavingData(taskName));
@@ -154,13 +151,15 @@ public abstract class ProcessingBackgroundTask<TProcess, TProcessStep> : NetShar
             _logger.LogTrace(StartHandlingData(taskName));
 
             if (!isParallel)
+            {
                 await _handler.HandleStep(step, data, cToken);
+            }
             else
             {
                 await _semaphore.WaitAsync(cToken);
-                
+
                 await _handler.HandleStep(step, data, cToken);
-                
+
                 _semaphore.Release();
             }
 

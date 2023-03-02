@@ -10,22 +10,22 @@ public sealed class NetSharedBackgroundTaskService<TBackgroundTask, TProcessStep
     where TBackgroundTask : NetSharedBackgroundTask<TProcessStep>
     where TProcessStep : class, IPersistentProcessStep
 {
-    public string Name { get; }
+    public string TaskName { get; }
 
     private readonly IServiceScopeFactory _scopeFactory;
 
     public NetSharedBackgroundTaskService(IServiceScopeFactory scopeFactory)
     {
-        Name = typeof(TBackgroundTask).Name;
+        TaskName = typeof(TBackgroundTask).Name;
         _scopeFactory = scopeFactory;
     }
 
-    public async Task Run(int taskCount, BackgroundTaskSettings settings, CancellationToken cToken)
+    public async Task StartTask(int taskCount, BackgroundTaskSettings settings, CancellationToken cToken)
     {
         await using var scope = _scopeFactory.CreateAsyncScope();
 
         var task = scope.ServiceProvider.GetRequiredService<TBackgroundTask>();
 
-        await task.Start(Name, taskCount, settings, cToken);
+        await task.Start(TaskName, taskCount, settings, cToken);
     }
 }
