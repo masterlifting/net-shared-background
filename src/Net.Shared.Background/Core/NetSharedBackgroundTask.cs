@@ -35,7 +35,7 @@ public abstract class NetSharedBackgroundTask<TProcessStep> where TProcessStep :
     private async Task<Queue<TProcessStep>> GetQueueProcessSteps(BackgroundTaskSettings settings)
     {
         var result = new Queue<TProcessStep>(settings.Steps.Names.Length);
-        var stepNames = await _processStepRepository.Reader.GetCatalogsDictionaryByNameAsync<TProcessStep>();
+        var stepNames = await _processStepRepository.Reader.GetCatalogsDictionaryByName<TProcessStep>();
 
         foreach (var stepName in settings.Steps.Names)
         {

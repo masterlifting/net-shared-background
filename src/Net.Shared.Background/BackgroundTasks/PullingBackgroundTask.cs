@@ -44,7 +44,7 @@ public abstract class PullingBackgroundTask<TProcess, TProcessStep> : NetSharedB
             {
                 _logger.LogTrace(StartSavingData(taskName));
 
-                await _repository.Writer.SaveProcessable(null, entities, cToken);
+                await _repository.Writer.SaveProcessableData(null, entities, cToken);
 
                 _logger.LogDebug(StopSavingData(taskName));
             }
@@ -75,7 +75,7 @@ public abstract class PullingBackgroundTask<TProcess, TProcessStep> : NetSharedB
 
             await _semaphore.WaitAsync(cToken);
 
-            await _repository.Writer.SaveProcessable(null, entities, cToken);
+            await _repository.Writer.SaveProcessableData(null, entities, cToken);
 
             _semaphore.Release();
 

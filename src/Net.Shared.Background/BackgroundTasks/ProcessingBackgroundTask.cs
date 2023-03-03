@@ -41,7 +41,7 @@ public abstract class ProcessingBackgroundTask<TProcess, TProcessStep> : NetShar
 
             var action = step.Description ?? step.Name;
 
-            var processableData = await GetProcessable(taskName, taskCount, step, settings, cToken);
+            var processableData = await GetProcessableData(taskName, taskCount, step, settings, cToken);
 
             if (!processableData.Any())
                 continue;
@@ -59,13 +59,13 @@ public abstract class ProcessingBackgroundTask<TProcess, TProcessStep> : NetShar
                     foreach (var entity in processableData.Where(x => x.ProcessStatusId == (int)ProcessStatuses.Processed))
                         entity.ProcessStatusId = (int)ProcessStatuses.Ready;
 
-                    await _processRepository.Writer.SaveProcessable(nextStep, processableData, cToken);
+                    await _processRepository.Writer.SaveProcessableData(nextStep, processableData, cToken);
 
                     _logger.LogDebug(StopSavingData(taskName) + $". The next step is '{nextStep!.Name}'");
                 }
                 else
                 {
-                    await _processRepository.Writer.SaveProcessable(null, processableData, cToken);
+                    await _processRepository.Writer.SaveProcessableData(null, processableData, cToken);
 
                     _logger.LogDebug(StopSavingData(taskName));
                 }
@@ -89,7 +89,7 @@ public abstract class ProcessingBackgroundTask<TProcess, TProcessStep> : NetShar
         if (steps.Any() && !isDequeue)
             await HandleStepParallel(steps, taskName, taskCount, settings, cToken);
 
-        var processableData = await GetProcessable(taskName, taskCount, step!, settings, cToken);
+        var processableData = await GetProcessableData(taskName, taskCount, step!, settings, cToken);
 
         if (!processableData.Any())
             return;
@@ -102,7 +102,7 @@ public abstract class ProcessingBackgroundTask<TProcess, TProcessStep> : NetShar
 
             await _semaphore.WaitAsync(cToken);
 
-            await _processRepository.Writer.SaveProcessable(null, processableData, cToken);
+            await _processRepository.Writer.SaveProcessableData(null, processableData, cToken);
 
             _semaphore.Release();
 
@@ -114,13 +114,13 @@ public abstract class ProcessingBackgroundTask<TProcess, TProcessStep> : NetShar
         }
     }
 
-    private async Task<TProcess[]> GetProcessable(string taskName, int taskCount, TProcessStep step, BackgroundTaskSettings settings, CancellationToken cToken)
+    private async Task<TProcess[]> GetProcessableData(string taskName, int taskCount, TProcessStep step, BackgroundTaskSettings settings, CancellationToken cToken)
     {
         try
         {
             _logger.LogTrace(StartGettingProcessableData(taskName));
 
-            var result = await _processRepository.Reader.GetProcessableAsync<TProcess>(step, settings.Steps.ProcessingMaxCount, cToken);
+            var result = await _processRepository.Reader.GetProcessableData<TProcess>(step, settings.Steps.ProcessingMaxCount, cToken);
 
             if (settings.RetryPolicy is not null && taskCount % settings.RetryPolicy.EveryTime == 0)
             {
@@ -129,7 +129,7 @@ public abstract class ProcessingBackgroundTask<TProcess, TProcessStep> : NetShar
                 var retryTime = TimeOnly.Parse(settings.Scheduler.WorkTime).ToTimeSpan() * settings.RetryPolicy.EveryTime;
                 var retryDate = DateTime.UtcNow.Add(-retryTime);
 
-                var unprocessableResult = await _processRepository.Reader.GetUnprocessableAsync<TProcess>(step, settings.Steps.ProcessingMaxCount, retryDate, settings.RetryPolicy.MaxAttempts, cToken);
+                var unprocessableResult = await _processRepository.Reader.GetUnprocessableData<TProcess>(step, settings.Steps.ProcessingMaxCount, retryDate, settings.RetryPolicy.MaxAttempts, cToken);
 
                 if (unprocessableResult.Any())
                     result = result.Concat(unprocessableResult).ToArray();
