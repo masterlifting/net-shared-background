@@ -1,7 +1,7 @@
 ﻿namespace Net.Shared.Background.Models.Settings;
 
-public sealed class BackgroundTaskSection
+public sealed record BackgroundTaskSection
 {
     public const string Name = "Background";
-    public Dictionary<string, BackgroundTaskSettings>? Tasks { get; set; }
+    public Dictionary<string, BackgroundTaskSettings>? Tasks { get; init; }
 }

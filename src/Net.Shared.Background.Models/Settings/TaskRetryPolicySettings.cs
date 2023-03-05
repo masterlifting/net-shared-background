@@ -1,7 +1,7 @@
 ﻿namespace Net.Shared.Background.Models.Settings;
 
-public sealed class TaskRetryPolicySettings
+public sealed record TaskRetryPolicySettings
 {
-    public int EveryTime { get; set; } = 5;
-    public int MaxAttempts { get; set; } = 10;
+    public int EveryTime { get; init; } = 5;
+    public int MaxAttempts { get; init; } = 10;
 }

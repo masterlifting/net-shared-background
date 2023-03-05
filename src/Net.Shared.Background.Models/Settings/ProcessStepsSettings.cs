@@ -1,8 +1,8 @@
 ﻿namespace Net.Shared.Background.Models.Settings;
 
-public sealed class ProcessStepsSettings
+public sealed record ProcessStepsSettings
 {
-    public int ProcessingMaxCount { get; set; }
-    public bool IsParallelProcessing { get; set; }
-    public string[] Names { get; set; } = Array.Empty<string>();
+    public int ProcessingMaxCount { get; init; }
+    public bool IsParallelProcessing { get; init; }
+    public string[] Names { get; init; } = Array.Empty<string>();
 }
