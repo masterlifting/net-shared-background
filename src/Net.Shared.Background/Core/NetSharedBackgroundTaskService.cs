@@ -1,6 +1,5 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
-
-using Net.Shared.Background.Abstractions;
+using Net.Shared.Background.Abstractions.Core;
 using Net.Shared.Background.Models.Settings;
 using Net.Shared.Persistence.Abstractions.Entities.Catalogs;
 

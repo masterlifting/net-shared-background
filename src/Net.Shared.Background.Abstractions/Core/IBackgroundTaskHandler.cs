@@ -1,6 +1,6 @@
 ﻿using Net.Shared.Persistence.Abstractions.Entities;
 
-namespace Net.Shared.Background.Abstractions;
+namespace Net.Shared.Background.Abstractions.Core;
 
 public interface IBackgroundTaskHandler<T> where T : class, IPersistentProcess
 {

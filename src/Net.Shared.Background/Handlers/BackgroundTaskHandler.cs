@@ -1,4 +1,4 @@
-﻿using Net.Shared.Background.Abstractions;
+﻿using Net.Shared.Background.Abstractions.Core;
 using Net.Shared.Background.Models.Exceptions;
 using Net.Shared.Persistence.Abstractions.Entities;
 using Net.Shared.Persistence.Abstractions.Entities.Catalogs;
