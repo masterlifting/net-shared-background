@@ -2,8 +2,8 @@ using System.Collections.Concurrent;
 using Microsoft.Extensions.Logging;
 using Net.Shared.Background.Models.Exceptions;
 using Net.Shared.Background.Models.Settings;
-using Net.Shared.Persistence.Abstractions.Core.Repositories;
 using Net.Shared.Persistence.Abstractions.Entities.Catalogs;
+using Net.Shared.Persistence.Abstractions.Repositories;
 
 namespace Net.Shared.Background.Core;
 

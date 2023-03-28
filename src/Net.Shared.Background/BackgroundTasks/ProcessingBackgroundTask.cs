@@ -4,9 +4,9 @@ using Net.Shared.Background.Core;
 using Net.Shared.Background.Handlers;
 using Net.Shared.Background.Models.Exceptions;
 using Net.Shared.Background.Models.Settings;
-using Net.Shared.Persistence.Abstractions.Core.Repositories;
 using Net.Shared.Persistence.Abstractions.Entities;
 using Net.Shared.Persistence.Abstractions.Entities.Catalogs;
+using Net.Shared.Persistence.Abstractions.Repositories;
 using static Net.Shared.Background.Models.Constants.BackgroundTaskActions;
 using static Net.Shared.Persistence.Models.Constants.Enums;
 
@@ -59,13 +59,13 @@ public abstract class ProcessingBackgroundTask<TProcess, TProcessStep> : NetShar
                     foreach (var entity in processableData.Where(x => x.ProcessStatusId == (int)ProcessStatuses.Processed))
                         entity.ProcessStatusId = (int)ProcessStatuses.Ready;
 
-                    await _processRepository.Writer.SaveProcessableData(nextStep, processableData, cToken);
+                    await _processRepository.Writer.SetProcessableData(nextStep, processableData, cToken);
 
                     _logger.LogDebug(StopSavingData(taskName) + $". The next step is '{nextStep!.Name}'");
                 }
                 else
                 {
-                    await _processRepository.Writer.SaveProcessableData(null, processableData, cToken);
+                    await _processRepository.Writer.SetProcessableData(null, processableData, cToken);
 
                     _logger.LogDebug(StopSavingData(taskName));
                 }
@@ -102,7 +102,7 @@ public abstract class ProcessingBackgroundTask<TProcess, TProcessStep> : NetShar
 
             await _semaphore.WaitAsync(cToken);
 
-            await _processRepository.Writer.SaveProcessableData(null, processableData, cToken);
+            await _processRepository.Writer.SetProcessableData(null, processableData, cToken);
 
             _semaphore.Release();
 

@@ -4,9 +4,9 @@ using Net.Shared.Background.Core;
 using Net.Shared.Background.Handlers;
 using Net.Shared.Background.Models.Exceptions;
 using Net.Shared.Background.Models.Settings;
-using Net.Shared.Persistence.Abstractions.Core.Repositories;
 using Net.Shared.Persistence.Abstractions.Entities;
 using Net.Shared.Persistence.Abstractions.Entities.Catalogs;
+using Net.Shared.Persistence.Abstractions.Repositories;
 using static Net.Shared.Background.Models.Constants.BackgroundTaskActions;
 
 namespace Net.Shared.Background.BackgroundTasks;
@@ -44,7 +44,7 @@ public abstract class PullingBackgroundTask<TProcess, TProcessStep> : NetSharedB
             {
                 _logger.LogTrace(StartSavingData(taskName));
 
-                await _repository.Writer.SaveProcessableData(null, entities, cToken);
+                await _repository.Writer.SetProcessableData(null, entities, cToken);
 
                 _logger.LogDebug(StopSavingData(taskName));
             }
@@ -75,7 +75,7 @@ public abstract class PullingBackgroundTask<TProcess, TProcessStep> : NetSharedB
 
             await _semaphore.WaitAsync(cToken);
 
-            await _repository.Writer.SaveProcessableData(null, entities, cToken);
+            await _repository.Writer.SetProcessableData(null, entities, cToken);
 
             _semaphore.Release();
 
