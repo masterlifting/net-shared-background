@@ -19,18 +19,21 @@ public abstract class ProcessingBackgroundTask<TProcess, TProcessStep> : NetShar
     private readonly SemaphoreSlim _semaphore = new(1);
 
     private readonly ILogger _logger;
-    private readonly IPersistenceRepository<TProcess> _processRepository;
     private readonly BackgroundTaskHandler<TProcess> _handler;
+    private readonly IPersistenceReaderRepository<TProcess> _readerRepository;
+    private readonly IPersistenceWriterRepository<TProcess> _writerRepository;
 
     protected ProcessingBackgroundTask(
         ILogger logger
-        , IPersistenceRepository<TProcess> processRepository
-        , IPersistenceRepository<TProcessStep> processStepRepository
+        , IPersistenceReaderRepository<TProcess> readerRepository
+        , IPersistenceWriterRepository<TProcess> writerRepository
+        , IPersistenceReaderRepository<TProcessStep> processStepRepository
         , BackgroundTaskHandler<TProcess> handler) : base(logger, processStepRepository)
     {
         _logger = logger;
-        _processRepository = processRepository;
         _handler = handler;
+        _readerRepository = readerRepository;
+        _writerRepository = writerRepository;
     }
 
     internal override async Task HandleSteps(Queue<TProcessStep> steps, string taskName, int taskCount, BackgroundTaskSettings settings, CancellationToken cToken)
@@ -59,13 +62,13 @@ public abstract class ProcessingBackgroundTask<TProcess, TProcessStep> : NetShar
                     foreach (var entity in processableData.Where(x => x.ProcessStatusId == (int)ProcessStatuses.Processed))
                         entity.ProcessStatusId = (int)ProcessStatuses.Ready;
 
-                    await _processRepository.Writer.SetProcessableData(nextStep, processableData, cToken);
+                    await _writerRepository.SetProcessableData(nextStep, processableData, cToken);
 
                     _logger.LogDebug(StopSavingData(taskName) + $". The next step is '{nextStep!.Name}'");
                 }
                 else
                 {
-                    await _processRepository.Writer.SetProcessableData(null, processableData, cToken);
+                    await _writerRepository.SetProcessableData(null, processableData, cToken);
 
                     _logger.LogDebug(StopSavingData(taskName));
                 }
@@ -102,7 +105,7 @@ public abstract class ProcessingBackgroundTask<TProcess, TProcessStep> : NetShar
 
             await _semaphore.WaitAsync(cToken);
 
-            await _processRepository.Writer.SetProcessableData(null, processableData, cToken);
+            await _writerRepository.SetProcessableData(null, processableData, cToken);
 
             _semaphore.Release();
 
@@ -120,7 +123,7 @@ public abstract class ProcessingBackgroundTask<TProcess, TProcessStep> : NetShar
         {
             _logger.LogTrace(StartGettingProcessableData(taskName));
 
-            var result = await _processRepository.Reader.GetProcessableData<TProcess>(step, settings.Steps.ProcessingMaxCount, cToken);
+            var result = await _readerRepository.GetProcessableData<TProcess>(step, settings.Steps.ProcessingMaxCount, cToken);
 
             if (settings.RetryPolicy is not null && taskCount % settings.RetryPolicy.EveryTime == 0)
             {
@@ -129,7 +132,7 @@ public abstract class ProcessingBackgroundTask<TProcess, TProcessStep> : NetShar
                 var retryTime = TimeOnly.Parse(settings.Scheduler.WorkTime).ToTimeSpan() * settings.RetryPolicy.EveryTime;
                 var retryDate = DateTime.UtcNow.Add(-retryTime);
 
-                var unprocessableResult = await _processRepository.Reader.GetUnprocessableData<TProcess>(step, settings.Steps.ProcessingMaxCount, retryDate, settings.RetryPolicy.MaxAttempts, cToken);
+                var unprocessableResult = await _readerRepository.GetUnprocessableData<TProcess>(step, settings.Steps.ProcessingMaxCount, retryDate, settings.RetryPolicy.MaxAttempts, cToken);
 
                 if (unprocessableResult.Any())
                     result = result.Concat(unprocessableResult).ToArray();

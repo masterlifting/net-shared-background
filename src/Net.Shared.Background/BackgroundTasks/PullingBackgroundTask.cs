@@ -18,18 +18,18 @@ public abstract class PullingBackgroundTask<TProcess, TProcessStep> : NetSharedB
     private readonly SemaphoreSlim _semaphore = new(1);
 
     private readonly ILogger _logger;
-    private readonly IPersistenceRepository<TProcess> _repository;
     private readonly BackgroundTaskHandler<TProcess> _handler;
+    private readonly IPersistenceWriterRepository<TProcess> _writerRepository;
 
     protected PullingBackgroundTask(
         ILogger logger
-        , IPersistenceRepository<TProcess> processRepository
-        , IPersistenceRepository<TProcessStep> catalogRepository
-        , BackgroundTaskHandler<TProcess> handler) : base(logger, catalogRepository)
+        , IPersistenceWriterRepository<TProcess> writerRepository
+        , IPersistenceReaderRepository<TProcessStep> processStepRepository
+        , BackgroundTaskHandler<TProcess> handler) : base(logger, processStepRepository)
     {
         _logger = logger;
-        _repository = processRepository;
         _handler = handler;
+        _writerRepository = writerRepository;
     }
 
     internal override async Task HandleSteps(Queue<TProcessStep> steps, string taskName, int taskCount, BackgroundTaskSettings settings, CancellationToken cToken)
@@ -44,7 +44,7 @@ public abstract class PullingBackgroundTask<TProcess, TProcessStep> : NetSharedB
             {
                 _logger.LogTrace(StartSavingData(taskName));
 
-                await _repository.Writer.SetProcessableData(null, entities, cToken);
+                await _writerRepository.SetProcessableData(null, entities, cToken);
 
                 _logger.LogDebug(StopSavingData(taskName));
             }
@@ -75,7 +75,7 @@ public abstract class PullingBackgroundTask<TProcess, TProcessStep> : NetSharedB
 
             await _semaphore.WaitAsync(cToken);
 
-            await _repository.Writer.SetProcessableData(null, entities, cToken);
+            await _writerRepository.SetProcessableData(null, entities, cToken);
 
             _semaphore.Release();
 

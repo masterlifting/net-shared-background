@@ -10,11 +10,11 @@ namespace Net.Shared.Background.Core;
 public abstract class NetSharedBackgroundTask<TProcessStep> where TProcessStep : class, IPersistentProcessStep
 {
     private readonly ILogger _logger;
-    private readonly IPersistenceRepository<TProcessStep> _processStepRepository;
+    private readonly IPersistenceReaderRepository<TProcessStep> _processStepRepository;
 
     protected NetSharedBackgroundTask(
         ILogger logger,
-        IPersistenceRepository<TProcessStep> processStepRepository)
+        IPersistenceReaderRepository<TProcessStep> processStepRepository)
     {
         _logger = logger;
         _processStepRepository = processStepRepository;
@@ -22,7 +22,7 @@ public abstract class NetSharedBackgroundTask<TProcessStep> where TProcessStep :
 
     internal async Task Start(string taskName, int taskCount, BackgroundTaskSettings settings, CancellationToken cToken)
     {
-        var steps = await GetQueueProcessSteps(settings);
+        var steps = await GetQueueProcessSteps(settings, cToken);
 
         _logger.LogTrace($"Start task '{taskName}' №{taskCount} with steps count: {steps.Count} as parallel: {settings.Steps.IsParallelProcessing}");
 
@@ -32,10 +32,10 @@ public abstract class NetSharedBackgroundTask<TProcessStep> where TProcessStep :
             await HandleSteps(steps, taskName, taskCount, settings, cToken);
     }
 
-    private async Task<Queue<TProcessStep>> GetQueueProcessSteps(BackgroundTaskSettings settings)
+    private async Task<Queue<TProcessStep>> GetQueueProcessSteps(BackgroundTaskSettings settings, CancellationToken cToken = default)
     {
         var result = new Queue<TProcessStep>(settings.Steps.Names.Length);
-        var stepNames = await _processStepRepository.Reader.GetCatalogsDictionaryByName<TProcessStep>();
+        var stepNames = await _processStepRepository.GetCatalogsDictionaryByName<TProcessStep>(cToken);
 
         foreach (var stepName in settings.Steps.Names)
         {
