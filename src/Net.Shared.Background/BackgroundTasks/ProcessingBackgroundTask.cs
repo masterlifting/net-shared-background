@@ -12,31 +12,32 @@ using static Net.Shared.Persistence.Models.Constants.Enums;
 
 namespace Net.Shared.Background.BackgroundTasks;
 
-public abstract class ProcessingBackgroundTask : NetSharedBackgroundTask
+public abstract class ProcessingBackgroundTask<TData> : NetSharedBackgroundProcessTask
+    where TData : class, IPersistentProcess
 {
     private readonly SemaphoreSlim _semaphore = new(1);
 
     private readonly ILogger _logger;
-    private readonly BackgroundTaskHandler _handler;
+    private readonly BackgroundProcessTaskHandler<TData> _handler;
     private readonly IPersistenceProcessRepository _repository;
 
     protected ProcessingBackgroundTask(
         ILogger logger
         , IPersistenceProcessRepository repository
-        , BackgroundTaskHandler handler) : base(logger, repository)
+        , BackgroundProcessTaskHandler<TData> handler) : base(logger)
     {
         _logger = logger;
         _handler = handler;
         _repository = repository;
     }
 
-    internal override async Task HandleSteps<TStep, TData>(Queue<TStep> steps, string taskName, int taskCount, BackgroundTaskSettings settings, CancellationToken cToken)
+    internal override async Task HandleSteps(Queue<IPersistentProcessStep> steps, string taskName, int taskCount, BackgroundTaskSettings settings, CancellationToken cToken)
     {
         for (var i = 0; i <= steps.Count; i++)
         {
             var step = steps.Dequeue();
 
-            var processableData = await GetProcessableData<TStep, TData>(taskName, taskCount, step, settings, cToken);
+            var processableData = await GetProcessableData(taskName, taskCount, step, settings, cToken);
 
             if (!processableData.Any())
                 continue;
@@ -71,7 +72,7 @@ public abstract class ProcessingBackgroundTask : NetSharedBackgroundTask
             }
         }
     }
-    internal override Task HandleStepsParallel<TStep, TData>(ConcurrentQueue<TStep> steps, string taskName, int taskCount, BackgroundTaskSettings settings, CancellationToken cToken)
+    internal override Task HandleStepsParallel(ConcurrentQueue<IPersistentProcessStep> steps, string taskName, int taskCount, BackgroundTaskSettings settings, CancellationToken cToken)
     {
         var tasks = Enumerable.Range(0, steps.Count).Select(async _ =>
         {
@@ -87,7 +88,7 @@ public abstract class ProcessingBackgroundTask : NetSharedBackgroundTask
             {
                 await _semaphore.WaitAsync(cToken);
 
-                var processableData = await GetProcessableData<TStep, TData>(taskName, taskCount, step!, settings, cToken);
+                var processableData = await GetProcessableData(taskName, taskCount, step!, settings, cToken);
 
                 if (!processableData.Any())
                     return;
@@ -136,9 +137,7 @@ public abstract class ProcessingBackgroundTask : NetSharedBackgroundTask
          }, cToken);
     }
 
-    private async Task<TData[]> GetProcessableData<TStep, TData>(string taskName, int taskCount, TStep step, BackgroundTaskSettings settings, CancellationToken cToken)
-        where TStep : class, IPersistentProcessStep
-        where TData : class, IPersistentProcess
+    private async Task<TData[]> GetProcessableData(string taskName, int taskCount, IPersistentProcessStep step, BackgroundTaskSettings settings, CancellationToken cToken)
     {
         try
         {
@@ -169,9 +168,7 @@ public abstract class ProcessingBackgroundTask : NetSharedBackgroundTask
             return Array.Empty<TData>();
         }
     }
-    private async Task HandleData<TStep, TData>(string taskName, TStep step, TData[] data, CancellationToken cToken)
-        where TStep : class, IPersistentProcessStep
-        where TData : class, IPersistentProcess
+    private async Task HandleData(string taskName, IPersistentProcessStep step, TData[] data, CancellationToken cToken)
     {
         try
         {
