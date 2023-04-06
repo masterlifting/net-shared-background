@@ -5,10 +5,14 @@ using Net.Shared.Background.Abstractions.Core;
 using Net.Shared.Background.Models.Exceptions;
 using Net.Shared.Background.Models.Settings;
 using Net.Shared.Background.Schedulers;
+using Net.Shared.Persistence.Abstractions.Entities;
+using Net.Shared.Persistence.Abstractions.Entities.Catalogs;
 
 namespace Net.Shared.Background.Core;
 
-public abstract class NetSharedBackgroundService : BackgroundService
+public abstract class NetSharedBackgroundService<TStep, TData> : BackgroundService
+    where TStep : class, IPersistentProcessStep
+    where TData : class, IPersistentProcess
 {
     private int _count;
     private const int Limit = 5_000;
@@ -83,7 +87,7 @@ public abstract class NetSharedBackgroundService : BackgroundService
             {
                 _logger.LogTrace($"The task '{_taskService.TaskName}' is starting...");
 
-                await _taskService.StartTask(_count, settings, cToken);
+                await _taskService.StartTask<TStep, TData>(_count, settings, cToken);
 
                 _logger.LogTrace($"The task '{_taskService.TaskName}' was done!");
             }

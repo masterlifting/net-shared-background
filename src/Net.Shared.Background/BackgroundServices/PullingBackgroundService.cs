@@ -10,15 +10,15 @@ using Net.Shared.Persistence.Abstractions.Entities.Catalogs;
 
 namespace Net.Shared.Background.BackgroundServices;
 
-public abstract class PullingBackgroundService<TBackgroundTask, TProcess, TProcessStep> : NetSharedBackgroundService 
-    where TBackgroundTask : PullingBackgroundTask<TProcess, TProcessStep>
-    where TProcess : class, IPersistentProcess
-    where TProcessStep : class, IPersistentProcessStep
+public abstract class PullingBackgroundService<TTask, TStep, TData> : NetSharedBackgroundService<TStep, TData>
+    where TTask : PullingBackgroundTask
+    where TStep : class, IPersistentProcessStep
+    where TData : class, IPersistentProcess
 {
     protected PullingBackgroundService(
         IOptionsMonitor<BackgroundTaskSection> options
         , ILogger logger
-        , IServiceScopeFactory scopeFactory) : base(options, logger, new NetSharedBackgroundTaskService<TBackgroundTask, TProcessStep>(scopeFactory))
+        , IServiceScopeFactory scopeFactory) : base(options, logger, new NetSharedBackgroundTaskService<TTask>(scopeFactory))
     {
     }
 }

@@ -2,40 +2,44 @@ using System.Collections.Concurrent;
 using Microsoft.Extensions.Logging;
 using Net.Shared.Background.Models.Exceptions;
 using Net.Shared.Background.Models.Settings;
+using Net.Shared.Persistence.Abstractions.Entities;
 using Net.Shared.Persistence.Abstractions.Entities.Catalogs;
 using Net.Shared.Persistence.Abstractions.Repositories;
 
 namespace Net.Shared.Background.Core;
 
-public abstract class NetSharedBackgroundTask<TProcessStep> where TProcessStep : class, IPersistentProcessStep
+public abstract class NetSharedBackgroundTask
 {
     private readonly ILogger _logger;
-    private readonly IPersistenceReaderRepository<TProcessStep> _processStepRepository;
+    private readonly IPersistenceProcessRepository _repository;
 
     protected NetSharedBackgroundTask(
         ILogger logger,
-        IPersistenceReaderRepository<TProcessStep> processStepRepository)
+        IPersistenceProcessRepository repository)
     {
         _logger = logger;
-        _processStepRepository = processStepRepository;
+        _repository = repository;
     }
 
-    internal async Task Start(string taskName, int taskCount, BackgroundTaskSettings settings, CancellationToken cToken)
+    internal async Task Start<TStep, TData>(string taskName, int taskCount, BackgroundTaskSettings settings, CancellationToken cToken)
+        where TStep : class, IPersistentProcessStep
+        where TData : class, IPersistentProcess
     {
-        var steps = await GetQueueProcessSteps(settings, cToken);
+        var steps = await GetQueueProcessSteps<TStep>(settings, cToken);
 
         _logger.LogTrace($"Start task '{taskName}' №{taskCount} with steps count: {steps.Count} as parallel: {settings.Steps.IsParallelProcessing}");
 
         if (settings.Steps.IsParallelProcessing)
-            await HandleStepsParallel(new ConcurrentQueue<TProcessStep>(steps), taskName, taskCount, settings, cToken);
+            await HandleStepsParallel<TStep, TData>(new ConcurrentQueue<TStep>(steps), taskName, taskCount, settings, cToken);
         else
-            await HandleSteps(steps, taskName, taskCount, settings, cToken);
+            await HandleSteps<TStep, TData>(steps, taskName, taskCount, settings, cToken);
     }
 
-    private async Task<Queue<TProcessStep>> GetQueueProcessSteps(BackgroundTaskSettings settings, CancellationToken cToken = default)
+    private async Task<Queue<TStep>> GetQueueProcessSteps<TStep>(BackgroundTaskSettings settings, CancellationToken cToken = default)
+        where TStep : class, IPersistentProcessStep
     {
-        var result = new Queue<TProcessStep>(settings.Steps.Names.Length);
-        var stepNames = await _processStepRepository.GetCatalogsDictionaryByName<TProcessStep>(cToken);
+        var result = new Queue<TStep>(settings.Steps.Names.Length);
+        var stepNames = await _repository.GetSteps<TStep>(cToken);
 
         foreach (var stepName in settings.Steps.Names)
         {
@@ -48,6 +52,10 @@ public abstract class NetSharedBackgroundTask<TProcessStep> where TProcessStep :
         return result;
     }
 
-    internal abstract Task HandleSteps(Queue<TProcessStep> steps, string taskName, int taskCount, BackgroundTaskSettings settings, CancellationToken cToken = default);
-    internal abstract Task HandleStepsParallel(ConcurrentQueue<TProcessStep> steps, string taskName, int taskCount, BackgroundTaskSettings settings, CancellationToken cToken = default);
+    internal abstract Task HandleSteps<TStep, TData>(Queue<TStep> steps, string taskName, int taskCount, BackgroundTaskSettings settings, CancellationToken cToken = default)
+        where TStep : class, IPersistentProcessStep
+        where TData : class, IPersistentProcess;
+    internal abstract Task HandleStepsParallel<TStep, TData>(ConcurrentQueue<TStep> steps, string taskName, int taskCount, BackgroundTaskSettings settings, CancellationToken cToken = default)
+        where TStep : class, IPersistentProcessStep
+        where TData : class, IPersistentProcess;
 }

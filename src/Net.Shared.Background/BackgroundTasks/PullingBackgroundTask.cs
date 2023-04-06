@@ -4,49 +4,48 @@ using Net.Shared.Background.Core;
 using Net.Shared.Background.Handlers;
 using Net.Shared.Background.Models.Exceptions;
 using Net.Shared.Background.Models.Settings;
-using Net.Shared.Persistence.Abstractions.Entities;
-using Net.Shared.Persistence.Abstractions.Entities.Catalogs;
 using Net.Shared.Persistence.Abstractions.Repositories;
 using static Net.Shared.Background.Models.Constants.BackgroundTaskActions;
 
 namespace Net.Shared.Background.BackgroundTasks;
 
-public abstract class PullingBackgroundTask<TProcess, TProcessStep> : NetSharedBackgroundTask<TProcessStep>
-    where TProcess : class, IPersistentProcess
-    where TProcessStep : class, IPersistentProcessStep
+public abstract class PullingBackgroundTask : NetSharedBackgroundTask
 {
     private readonly SemaphoreSlim _semaphore = new(1);
 
     private readonly ILogger _logger;
-    private readonly BackgroundTaskHandler<TProcess> _handler;
-    private readonly IPersistenceWriterRepository<TProcess> _writerRepository;
+    private readonly BackgroundTaskHandler _handler;
+    private readonly IPersistenceProcessRepository _repository;
 
     protected PullingBackgroundTask(
         ILogger logger
-        , IPersistenceWriterRepository<TProcess> writerRepository
-        , IPersistenceReaderRepository<TProcessStep> processStepRepository
-        , BackgroundTaskHandler<TProcess> handler) : base(logger, processStepRepository)
+        , IPersistenceProcessRepository repository
+        , BackgroundTaskHandler handler) : base(logger, repository)
     {
         _logger = logger;
         _handler = handler;
-        _writerRepository = writerRepository;
+        _repository = repository;
     }
 
-    internal override async Task HandleSteps(Queue<TProcessStep> steps, string taskName, int taskCount, BackgroundTaskSettings settings, CancellationToken cToken)
+    internal override async Task HandleSteps<TStep, TData>(Queue<TStep> steps, string taskName, int taskCount, BackgroundTaskSettings settings, CancellationToken cToken)
     {
         for (var i = 0; i <= steps.Count; i++)
         {
             var step = steps.Dequeue();
 
-            var entities = await HandleData(taskName, step, settings.Steps.IsParallelProcessing, cToken);
-
             try
             {
-                _logger.LogTrace(StartSavingData(taskName));
+                _logger.LogTrace(StartHandlingData(taskName, step.Name));
 
-                await _writerRepository.SetProcessableData(null, entities, cToken);
+                var entities = await _handler.HandleStep<TData>(step, cToken);
 
-                _logger.LogDebug(StopSavingData(taskName));
+                _logger.LogDebug(StopHandlingData(taskName, step.Name));
+
+                _logger.LogTrace(StartSavingData(taskName, step.Name));
+
+                await _repository.SetProcessableData(null, entities, cToken);
+
+                _logger.LogDebug(StopSavingData(taskName, step.Name));
             }
             catch (Exception exception)
             {
@@ -54,66 +53,51 @@ public abstract class PullingBackgroundTask<TProcess, TProcessStep> : NetSharedB
             }
         }
     }
-    internal override Task HandleStepsParallel(ConcurrentQueue<TProcessStep> steps, string taskName, int taskCount, BackgroundTaskSettings settings, CancellationToken cToken)
+    internal override Task HandleStepsParallel<TStep, TData>(ConcurrentQueue<TStep> steps, string taskName, int taskCount, BackgroundTaskSettings settings, CancellationToken cToken)
     {
-        var tasks = Enumerable.Range(0, steps.Count).Select(_ => HandleStepParallel(taskName, taskCount, steps, settings, cToken));
-        return Task.WhenAll(tasks);
-    }
-
-    private async Task HandleStepParallel(string taskName, int taskCount, ConcurrentQueue<TProcessStep> steps, BackgroundTaskSettings settings, CancellationToken cToken)
-    {
-        var isDequeue = steps.TryDequeue(out var step);
-
-        if (steps.Any() && !isDequeue)
-            await HandleStepParallel(taskName, taskCount, steps, settings, cToken);
-
-        var entities = await HandleData(taskName, step!, settings.Steps.IsParallelProcessing, cToken);
-
-        try
+        var tasks = Enumerable.Range(0, steps.Count).Select(async _ =>
         {
-            _logger.LogTrace(StartSavingData(taskName));
+            var isDequeue = steps.TryDequeue(out var step);
 
-            await _semaphore.WaitAsync(cToken);
-
-            await _writerRepository.SetProcessableData(null, entities, cToken);
-
-            _semaphore.Release();
-
-            _logger.LogDebug(StopSavingData(taskName));
-        }
-        catch (Exception exception)
-        {
-            _logger.LogError(new NetSharedBackgroundException(exception));
-        }
-    }
-    private async Task<IReadOnlyCollection<TProcess>> HandleData(string taskName, TProcessStep step, bool isParallel, CancellationToken cToken)
-    {
-        try
-        {
-            IReadOnlyCollection<TProcess> entities;
-
-            _logger.LogTrace(StartHandlingData(taskName));
-
-            if (!isParallel)
+            if (!isDequeue)
             {
-                entities = await _handler.HandleStep(step, cToken);
+                _logger.LogWarn($"No steps to process by step {step?.Name}.");
+                return;
             }
-            else
+
+            try
             {
                 await _semaphore.WaitAsync(cToken);
 
-                entities = await _handler.HandleStep(step, cToken);
+                _logger.LogTrace(StartHandlingData(taskName, step!.Name));
 
+                var entities = await _handler.HandleStep<TData>(step, cToken);
+
+                _logger.LogDebug(StopHandlingData(taskName, step!.Name));
+
+                _logger.LogTrace(StartSavingData(taskName, step!.Name));
+
+                await _repository.SetProcessableData(null, entities, cToken);
+
+                _logger.LogDebug(StopSavingData(taskName, step!.Name));
+            }
+            catch
+            {
+                throw;
+            }
+            finally
+            {
                 _semaphore.Release();
             }
+        });
 
-            _logger.LogDebug(StopHandlingData(taskName));
-
-            return entities;
-        }
-        catch (Exception exception)
+        return Task.WhenAll(tasks).ContinueWith(task =>
         {
-            throw new NetSharedBackgroundException(exception);
-        }
+            if (task.IsFaulted)
+            {
+                var exception = task.Exception ?? new AggregateException($"Unhandled exception of the paralel task.");
+                _logger.LogError(new NetSharedBackgroundException(exception));
+            }
+        }, cToken);
     }
 }

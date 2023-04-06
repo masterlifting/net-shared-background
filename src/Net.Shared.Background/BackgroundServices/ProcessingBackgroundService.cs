@@ -1,24 +1,23 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-
 using Net.Shared.Background.BackgroundTasks;
 using Net.Shared.Background.Core;
 using Net.Shared.Background.Models.Settings;
-using Net.Shared.Persistence.Abstractions.Entities.Catalogs;
 using Net.Shared.Persistence.Abstractions.Entities;
+using Net.Shared.Persistence.Abstractions.Entities.Catalogs;
 
 namespace Net.Shared.Background.BackgroundServices;
 
-public abstract class ProcessingBackgroundService<TBackgroundTask, TProcess, TProcessStep> : NetSharedBackgroundService
-    where TBackgroundTask : ProcessingBackgroundTask<TProcess, TProcessStep>
-    where TProcess : class, IPersistentProcess
-    where TProcessStep : class, IPersistentProcessStep
+public abstract class ProcessingBackgroundService<TTask, TStep, TData> : NetSharedBackgroundService<TStep, TData>
+    where TTask : ProcessingBackgroundTask
+    where TStep : class, IPersistentProcessStep
+    where TData : class, IPersistentProcess
 {
     protected ProcessingBackgroundService(
         IOptionsMonitor<BackgroundTaskSection> options
         , ILogger logger
-        , IServiceScopeFactory scopeFactory) : base(options, logger, new NetSharedBackgroundTaskService<TBackgroundTask, TProcessStep>(scopeFactory))
+        , IServiceScopeFactory scopeFactory) : base(options, logger, new NetSharedBackgroundTaskService<TTask>(scopeFactory))
     {
     }
 }
