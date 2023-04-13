@@ -7,8 +7,8 @@ namespace Net.Shared.Background.Handlers;
 
 public sealed class BackgroundProcessStepHandler<T> where T : class, IPersistentProcess
 {
-    private readonly Dictionary<int, IBackgroundProcessDataHandler<T>> _dataHandlers;
-    public BackgroundProcessStepHandler(Dictionary<int, IBackgroundProcessDataHandler<T>> dataHandlers) => _dataHandlers = dataHandlers;
+    private readonly Dictionary<int, IBackgroundDataHandler<T>> _dataHandlers;
+    public BackgroundProcessStepHandler(Dictionary<int, IBackgroundDataHandler<T>> dataHandlers) => _dataHandlers = dataHandlers;
 
     public Task HandleStep(IPersistentProcessStep step, IEnumerable<T> data, CancellationToken cToken = default) =>
         _dataHandlers.TryGetValue(step.Id, out var handler)
