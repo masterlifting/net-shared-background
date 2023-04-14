@@ -10,24 +10,19 @@ using Net.Shared.Persistence.Abstractions.Entities.Catalogs;
 
 using static Net.Shared.Background.Models.Constants.BackgroundTaskActions;
 
-namespace Net.Shared.Background.BackgroundTasks;
+namespace Net.Shared.Background.Tasks;
 
-public abstract class PullingBackgroundTask<T> : NetSharedBackgroundProcessTask where T : class, IPersistentProcess
+public abstract class PullingBackgroundTask<T> : NetSharedBackgroundProcessTask<T> where T : class, IPersistentProcess
 {
-    protected PullingBackgroundTask(ILogger logger) : base(logger)
-    {
-        _logger = logger;
-        _handler = RegisterProcessStepHandlers<T>();
-    }
+    protected PullingBackgroundTask(ILogger logger) : base(logger) => _logger = logger;
 
     #region PRIVATE FIELDS
     private readonly SemaphoreSlim _semaphore = new(1);
     private readonly ILogger _logger;
-    private readonly BackgroundProcessStepHandler<T> _handler;
     #endregion
 
     #region OVERRIDED FUNCTIONS
-    protected override async Task HandleSteps(Queue<IPersistentProcessStep> steps, CancellationToken cToken)
+    protected override async Task HandleSteps(Queue<IPersistentProcessStep> steps, BackgroundProcessStepHandler<T> stepsHandler, CancellationToken cToken)
     {
         for (var i = 0; i <= steps.Count; i++)
         {
@@ -37,7 +32,7 @@ public abstract class PullingBackgroundTask<T> : NetSharedBackgroundProcessTask 
             {
                 _logger.LogTrace(StartHandlingData(Info.Name, step.Name));
 
-                var entities = await _handler.HandleStep(step, cToken);
+                var entities = await stepsHandler.HandleStep(step, cToken);
 
                 _logger.LogDebug(StopHandlingData(Info.Name, step.Name));
 
@@ -53,7 +48,7 @@ public abstract class PullingBackgroundTask<T> : NetSharedBackgroundProcessTask 
             }
         }
     }
-    protected override Task HandleStepsParallel(ConcurrentQueue<IPersistentProcessStep> steps, CancellationToken cToken)
+    protected override Task HandleStepsParallel(ConcurrentQueue<IPersistentProcessStep> steps, BackgroundProcessStepHandler<T> stepsHandler, CancellationToken cToken)
     {
         var tasks = Enumerable.Range(0, steps.Count).Select(async _ =>
         {
@@ -71,7 +66,7 @@ public abstract class PullingBackgroundTask<T> : NetSharedBackgroundProcessTask 
 
                 _logger.LogTrace(StartHandlingData(Info.Name, step!.Name));
 
-                var entities = await _handler.HandleStep(step, cToken);
+                var entities = await stepsHandler.HandleStep(step, cToken);
 
                 _logger.LogDebug(StopHandlingData(Info.Name, step!.Name));
 

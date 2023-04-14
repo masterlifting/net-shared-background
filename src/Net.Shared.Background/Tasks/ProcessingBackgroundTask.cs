@@ -11,24 +11,19 @@ using Net.Shared.Persistence.Abstractions.Entities.Catalogs;
 using static Net.Shared.Background.Models.Constants.BackgroundTaskActions;
 using static Net.Shared.Persistence.Models.Constants.Enums;
 
-namespace Net.Shared.Background.BackgroundTasks;
+namespace Net.Shared.Background.Tasks;
 
-public abstract class ProcessingBackgroundTask<T> : NetSharedBackgroundProcessTask where T : class, IPersistentProcess
+public abstract class ProcessingBackgroundTask<T> : NetSharedBackgroundProcessTask<T> where T : class, IPersistentProcess
 {
-    protected ProcessingBackgroundTask(ILogger logger) : base(logger)
-    {
-        _logger = logger;
-        _handler = RegisterProcessStepHandlers<T>();
-    }
+    protected ProcessingBackgroundTask(ILogger logger) : base(logger) => _logger = logger;
 
     #region PRIVATE FIELDS
     private readonly SemaphoreSlim _semaphore = new(1);
     private readonly ILogger _logger;
-    private readonly BackgroundProcessStepHandler<T> _handler;
     #endregion
 
     #region OVERRIDED FUNCTIONS
-    protected override async Task HandleSteps(Queue<IPersistentProcessStep> steps, CancellationToken cToken)
+    protected override async Task HandleSteps(Queue<IPersistentProcessStep> steps, BackgroundProcessStepHandler<T> stepsHandler, CancellationToken cToken)
     {
         for (var i = 0; i <= steps.Count; i++)
         {
@@ -39,7 +34,7 @@ public abstract class ProcessingBackgroundTask<T> : NetSharedBackgroundProcessTa
             if (!processableData.Any())
                 continue;
 
-            await HandleData(step, processableData, cToken);
+            await HandleData(step, stepsHandler, processableData, cToken);
 
             var isNextStep = steps.TryPeek(out var nextStep);
 
@@ -69,7 +64,7 @@ public abstract class ProcessingBackgroundTask<T> : NetSharedBackgroundProcessTa
             }
         }
     }
-    protected override Task HandleStepsParallel(ConcurrentQueue<IPersistentProcessStep> steps, CancellationToken cToken)
+    protected override Task HandleStepsParallel(ConcurrentQueue<IPersistentProcessStep> steps, BackgroundProcessStepHandler<T> stepsHandler, CancellationToken cToken)
     {
         var tasks = Enumerable.Range(0, steps.Count).Select(async _ =>
         {
@@ -90,7 +85,7 @@ public abstract class ProcessingBackgroundTask<T> : NetSharedBackgroundProcessTa
                 if (!processableData.Any())
                     return;
 
-                await HandleData(step!, processableData, cToken);
+                await HandleData(step!, stepsHandler, processableData, cToken);
 
                 var isNextStep = steps.TryPeek(out var nextStep);
 
@@ -142,7 +137,7 @@ public abstract class ProcessingBackgroundTask<T> : NetSharedBackgroundProcessTa
         {
             _logger.LogTrace(StartGettingProcessableData(Info.Name, step.Name));
 
-            var result = await GetProcessableData<T>(step, Info.Settings.Steps.ProcessingMaxCount, cToken);
+            var result = await GetProcessableData(step, Info.Settings.Steps.ProcessingMaxCount, cToken);
 
             if (Info.Settings.RetryPolicy is not null && Info.Number % Info.Settings.RetryPolicy.EveryTime == 0)
             {
@@ -151,7 +146,7 @@ public abstract class ProcessingBackgroundTask<T> : NetSharedBackgroundProcessTa
                 var retryTime = TimeOnly.Parse(Info.Settings.Scheduler.WorkTime).ToTimeSpan() * Info.Settings.RetryPolicy.EveryTime;
                 var retryDate = DateTime.UtcNow.Add(-retryTime);
 
-                var unprocessableResult = await GetUnprocessableData<T>(step, Info.Settings.Steps.ProcessingMaxCount, retryDate, Info.Settings.RetryPolicy.MaxAttempts, cToken);
+                var unprocessableResult = await GetUnprocessableData(step, Info.Settings.Steps.ProcessingMaxCount, retryDate, Info.Settings.RetryPolicy.MaxAttempts, cToken);
 
                 if (unprocessableResult.Any())
                     result = result.Concat(unprocessableResult).ToArray();
@@ -167,13 +162,13 @@ public abstract class ProcessingBackgroundTask<T> : NetSharedBackgroundProcessTa
             return Array.Empty<T>();
         }
     }
-    private async Task HandleData(IPersistentProcessStep step, T[] data, CancellationToken cToken)
+    private async Task HandleData(IPersistentProcessStep step, BackgroundProcessStepHandler<T> stepsHandler, T[] data, CancellationToken cToken)
     {
         try
         {
             _logger.LogTrace(StartHandlingData(Info.Name, step.Name));
 
-            await _handler.HandleStep(step, data, cToken);
+            await stepsHandler.HandleStep(step, data, cToken);
 
             foreach (var entity in data.Where(x => x.ProcessStatusId != (int)ProcessStatuses.Error))
                 entity.ProcessStatusId = (int)ProcessStatuses.Processed;

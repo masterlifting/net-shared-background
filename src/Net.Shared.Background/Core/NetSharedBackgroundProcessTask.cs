@@ -12,7 +12,7 @@ using Net.Shared.Persistence.Abstractions.Entities.Catalogs;
 
 namespace Net.Shared.Background.Core;
 
-public abstract class NetSharedBackgroundProcessTask : IBackgroundTask
+public abstract class NetSharedBackgroundProcessTask<T> : IBackgroundTask where T : class, IPersistentProcess
 {
     protected NetSharedBackgroundProcessTask(ILogger logger)
     {
@@ -35,12 +35,14 @@ public abstract class NetSharedBackgroundProcessTask : IBackgroundTask
 
         var queueSteps = await GetQueueProcessSteps(cToken);
 
+        var stepsHandler = RegisterProcessSteps(queueSteps);
+
         _logger.LogTrace($"Start task '{taskInfo.Name}' №{taskInfo.Number} with steps count: {queueSteps.Count} as parallel: {taskInfo.Settings.Steps.IsParallelProcessing}");
 
         if (taskInfo.Settings.Steps.IsParallelProcessing)
-            await HandleStepsParallel(new ConcurrentQueue<IPersistentProcessStep>(queueSteps), cToken);
+            await HandleStepsParallel(new ConcurrentQueue<IPersistentProcessStep>(queueSteps), stepsHandler, cToken);
         else
-            await HandleSteps(queueSteps, cToken);
+            await HandleSteps(queueSteps, stepsHandler, cToken);
     }
     #endregion
 
@@ -67,14 +69,15 @@ public abstract class NetSharedBackgroundProcessTask : IBackgroundTask
     #endregion
 
     #region ABSTRACT FUNCTIONS
-    protected abstract BackgroundProcessStepHandler<T> RegisterProcessStepHandlers<T>() where T : class, IPersistentProcess;
 
     protected abstract Task<IPersistentProcessStep[]> GetPersistentProcessSteps(CancellationToken cToken = default);
-    protected abstract Task HandleSteps(Queue<IPersistentProcessStep> steps, CancellationToken cToken = default);
-    protected abstract Task HandleStepsParallel(ConcurrentQueue<IPersistentProcessStep> steps, CancellationToken cToken = default);
+    protected abstract BackgroundProcessStepHandler<T> RegisterProcessSteps(IReadOnlyCollection<IPersistentProcessStep> steps);
 
-    protected abstract Task<T[]> GetProcessableData<T>(IPersistentProcessStep step, int limit, CancellationToken cToken = default) where T : class, IPersistentProcess;
-    protected abstract Task<T[]> GetUnprocessableData<T>(IPersistentProcessStep step, int limit, DateTime updateTime, int maxAttempts, CancellationToken cToken = default) where T : class, IPersistentProcess;
-    protected abstract Task SetProcessableData<T>(IPersistentProcessStep? step, IEnumerable<T> entities, CancellationToken cToken = default) where T : class, IPersistentProcess;
+    protected abstract Task HandleSteps(Queue<IPersistentProcessStep> steps, BackgroundProcessStepHandler<T> stepsHandler, CancellationToken cToken = default);
+    protected abstract Task HandleStepsParallel(ConcurrentQueue<IPersistentProcessStep> steps, BackgroundProcessStepHandler<T> stepsHandler, CancellationToken cToken = default);
+
+    protected abstract Task<T[]> GetProcessableData(IPersistentProcessStep step, int limit, CancellationToken cToken = default);
+    protected abstract Task<T[]> GetUnprocessableData(IPersistentProcessStep step, int limit, DateTime updateTime, int maxAttempts, CancellationToken cToken = default);
+    protected abstract Task SetProcessableData(IPersistentProcessStep? step, IEnumerable<T> entities, CancellationToken cToken = default);
     #endregion
 }
