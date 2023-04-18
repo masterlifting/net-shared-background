@@ -2,6 +2,21 @@
 
 public interface IBackgroundDataHandler<T> where T : class
 {
-    Task Handle(IEnumerable<T> data, CancellationToken cToken);
-    Task<IReadOnlyCollection<T>> Handle(CancellationToken cToken);
+    /// <summary>
+    /// Get data from source.
+    /// </summary>
+    /// <returns>
+    /// Getted data.
+    /// </returns>
+    Task<IReadOnlyCollection<T>> Get(CancellationToken cToken);
+    /// <summary>
+    /// Process data.
+    /// </summary>
+    /// <param name="data">
+    /// Processable data.
+    /// </param>
+    /// <returns>
+    /// Task.
+    /// </returns>
+    Task Post(IEnumerable<T> data, CancellationToken cToken);
 }

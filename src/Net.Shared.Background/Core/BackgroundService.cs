@@ -1,5 +1,4 @@
-﻿using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.Logging;
 
 using Net.Shared.Background.Abstractions.Core;
 using Net.Shared.Background.Models;
@@ -9,9 +8,9 @@ using Net.Shared.Background.Schedulers;
 
 namespace Net.Shared.Background.Core;
 
-public abstract class NetSharedBackgroundService : BackgroundService
+public abstract class BackgroundService : Microsoft.Extensions.Hosting.BackgroundService
 {
-    protected NetSharedBackgroundService(string taskName, IBackgroundTaskConfigurationProvider provider, ILogger logger)
+    protected BackgroundService(string taskName, IBackgroundServiceConfigurationProvider provider, ILogger logger)
     {
         _logger = logger;
         _taskName = taskName;
@@ -32,7 +31,7 @@ public abstract class NetSharedBackgroundService : BackgroundService
     {
         if (_tasks?.ContainsKey(_taskName) != true)
         {
-            _logger.LogWarn($"The configuration was not found for the task '{_taskName}.'");
+            _logger.LogWarn($"The _options was not found for the task '{_taskName}.'");
             await StopAsync(cToken);
             return;
         }
@@ -78,7 +77,7 @@ public abstract class NetSharedBackgroundService : BackgroundService
             {
                 settings.Steps.ProcessingMaxCount = Limit;
 
-                _logger.LogWarn($"The limit of the processing data from the configuration for the task '{_taskName}' was exceeded and was set by default: {Limit}.");
+                _logger.LogWarn($"The limit of the processing data from the _options for the task '{_taskName}' was exceeded and was set by default: {Limit}.");
             }
 
             try

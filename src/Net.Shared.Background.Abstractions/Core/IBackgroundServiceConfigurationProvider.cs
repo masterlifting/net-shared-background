@@ -2,7 +2,7 @@
 
 namespace Net.Shared.Background.Abstractions.Core;
 
-public interface IBackgroundTaskConfigurationProvider
+public interface IBackgroundServiceConfigurationProvider
 {
     public BackgroundTasksConfiguration Configuration { get; }
 
