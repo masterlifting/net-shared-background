@@ -1,6 +1,5 @@
 ﻿using Microsoft.Extensions.Logging;
-
-using Net.Shared.Background.Abstractions.Core;
+using Net.Shared.Background.Abstractions;
 using Net.Shared.Background.Models;
 using Net.Shared.Background.Models.Exceptions;
 using Net.Shared.Background.Models.Settings;
@@ -88,13 +87,13 @@ public abstract class BackgroundService : Microsoft.Extensions.Hosting.Backgroun
 
                 _logger.LogTrace($"The task '{_taskName}' was done!");
             }
-            catch (NetSharedBackgroundException exception)
+            catch (BackgroundException exception)
             {
                 _logger.LogError(exception);
             }
             catch (Exception exception)
             {
-                _logger.LogError(new NetSharedBackgroundException($"Unhandled exception: {exception.Message}"));
+                _logger.LogError(new BackgroundException($"Unhandled exception: {exception.Message}"));
             }
             finally
             {
@@ -113,6 +112,6 @@ public abstract class BackgroundService : Microsoft.Extensions.Hosting.Backgroun
     #endregion
 
     #region ABSTRACT FUNCTIONS
-    protected abstract Task Run(NetSharedBackgroundTaskInfo taskInfo, CancellationToken cToken = default);
+    protected abstract Task Run(BackgroundTaskInfo taskInfo, CancellationToken cToken = default);
     #endregion
 }
