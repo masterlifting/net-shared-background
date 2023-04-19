@@ -1,6 +1,6 @@
 ﻿namespace Net.Shared.Background.Models.Settings;
 
-public sealed record TaskSchedulerSettings
+public sealed record BackgroundTaskSchedule
 {
     public bool IsEnable { get; init; }
     public bool IsOnce { get; init; }

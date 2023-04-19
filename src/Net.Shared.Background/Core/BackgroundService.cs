@@ -19,7 +19,6 @@ public abstract class BackgroundService : Microsoft.Extensions.Hosting.Backgroun
 
     #region PRIVATE FIELDS
     private int _count;
-    private const int Limit = 5_000;
     private readonly ILogger _logger;
     private readonly string _taskName;
     private Dictionary<string, BackgroundTaskSettings>? _tasks;
@@ -36,7 +35,7 @@ public abstract class BackgroundService : Microsoft.Extensions.Hosting.Backgroun
         }
 
         var settings = _tasks[_taskName];
-        var scheduler = new BackgroundTaskScheduler(settings.Scheduler);
+        var scheduler = new BackgroundTaskScheduler(settings.Schedule);
 
         if (!scheduler.IsReady(out var readyInfo))
         {
@@ -72,13 +71,6 @@ public abstract class BackgroundService : Microsoft.Extensions.Hosting.Backgroun
 
             _count++;
 
-            if (settings.Steps.ProcessingMaxCount > Limit)
-            {
-                settings.Steps.ProcessingMaxCount = Limit;
-
-                _logger.LogWarn($"The limit of the processing data from the _options for the task '{_taskName}' was exceeded and was set by default: {Limit}.");
-            }
-
             try
             {
                 _logger.LogTrace($"The task '{_taskName}' is starting...");
@@ -97,9 +89,9 @@ public abstract class BackgroundService : Microsoft.Extensions.Hosting.Backgroun
             }
             finally
             {
-                _logger.LogTrace($"The next task '{_taskName}' will launch in {settings.Scheduler.WorkTime}.");
+                _logger.LogTrace($"The next task '{_taskName}' will launch in {settings.Schedule.WorkTime}.");
 
-                if (settings.Scheduler.IsOnce)
+                if (settings.Schedule.IsOnce)
                     scheduler.SetOnce();
             }
         } while (await timer.WaitForNextTickAsync(cToken));
