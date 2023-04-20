@@ -4,6 +4,7 @@ using Net.Shared.Background.Abstractions;
 using Net.Shared.Background.Models;
 using Net.Shared.Background.Models.Exceptions;
 using Net.Shared.Background.Models.Settings;
+using Net.Shared.Extensions.Logging;
 using Net.Shared.Persistence.Abstractions.Entities;
 using Net.Shared.Persistence.Abstractions.Entities.Catalogs;
 using static Net.Shared.Persistence.Models.Constants.Enums;
@@ -36,7 +37,7 @@ public abstract class BackgroundTask<T> : IBackgroundTask where T : class, IPers
 
         var handler = RegisterTaskHandler();
 
-        _logger.LogTrace($"Start task '{taskInfo.Name}' №{taskInfo.Number} with steps count: {steps.Count} as parallel: {taskInfo.Settings.IsParallel}.");
+        _logger.Trace($"Start task '{taskInfo.Name}' №{taskInfo.Number} with steps count: {steps.Count} as parallel: {taskInfo.Settings.IsParallel}.");
 
         if (taskInfo.Settings.IsParallel)
             await HandleStepsParallel(new ConcurrentQueue<IPersistentProcessStep>(steps), handler, cToken);
@@ -62,7 +63,7 @@ public abstract class BackgroundTask<T> : IBackgroundTask where T : class, IPers
 
             if (currentStep is null)
             {
-                _logger.LogWarn("No steps to process.");
+                _logger.Warning("No steps to process.");
                 return;
             }
 
@@ -81,7 +82,7 @@ public abstract class BackgroundTask<T> : IBackgroundTask where T : class, IPers
             }
             catch (Exception exception)
             {
-                _logger.LogError(new BackgroundException(exception));
+                _logger.Error(new BackgroundException(exception));
             }
         }
     }
@@ -93,7 +94,7 @@ public abstract class BackgroundTask<T> : IBackgroundTask where T : class, IPers
 
             if (!isDequeue)
             {
-                _logger.LogWarn("No steps to process.");
+                _logger.Warning("No steps to process.");
                 return;
             }
 
@@ -127,7 +128,7 @@ public abstract class BackgroundTask<T> : IBackgroundTask where T : class, IPers
             if (task.IsFaulted)
             {
                 var exception = task.Exception ?? new AggregateException("Unhandled exception of the paralel task.");
-                _logger.LogError(new BackgroundException(exception));
+                _logger.Error(new BackgroundException(exception));
             }
         }, cToken);
     }
@@ -154,13 +155,13 @@ public abstract class BackgroundTask<T> : IBackgroundTask where T : class, IPers
     {
         try
         {
-            _logger.LogTrace($"Start getting processable data for the task: {TaskInfo.Name} by step: {step}.");
+            _logger.Trace($"Start getting processable data for the task: {TaskInfo.Name} by step: {step}.");
 
             var processableData = await GetProcessableData(step, TaskInfo.Settings.ChunkSize, cToken);
 
             if (TaskInfo.Settings.RetryPolicy is not null && TaskInfo.Number % TaskInfo.Settings.RetryPolicy.EveryTime == 0)
             {
-                _logger.LogTrace($"Start getting unprocessable data for the task: {TaskInfo.Name} by step: {step}.");
+                _logger.Trace($"Start getting unprocessable data for the task: {TaskInfo.Name} by step: {step}.");
 
                 var retryTime = TimeOnly.Parse(TaskInfo.Settings.Schedule.WorkTime).ToTimeSpan() * TaskInfo.Settings.RetryPolicy.EveryTime;
                 var retryDate = DateTime.UtcNow.Add(-retryTime);
@@ -171,13 +172,13 @@ public abstract class BackgroundTask<T> : IBackgroundTask where T : class, IPers
                     processableData = processableData.Concat(unprocessableResult).ToArray();
             }
 
-            _logger.LogDebug($"Stop getting data for the task: {TaskInfo.Name} by step: {step}.");
+            _logger.Debug($"Stop getting data for the task: {TaskInfo.Name} by step: {step}.");
 
             return processableData;
         }
         catch (Exception exception)
         {
-            _logger.LogError(new BackgroundException(exception));
+            _logger.Error(new BackgroundException(exception));
             return Array.Empty<T>();
         }
     }
@@ -185,7 +186,7 @@ public abstract class BackgroundTask<T> : IBackgroundTask where T : class, IPers
     {
         try
         {
-            _logger.LogTrace($"Start handling data for the task: {TaskInfo.Name} by step: {step}.");
+            _logger.Trace($"Start handling data for the task: {TaskInfo.Name} by step: {step}.");
 
             var result = await handler.Handle(step, data, cToken);
 
@@ -195,7 +196,7 @@ public abstract class BackgroundTask<T> : IBackgroundTask where T : class, IPers
             foreach (var item in result.Data.Where(x => x.ProcessStatusId != (int)ProcessStatuses.Error))
                 item.ProcessStatusId = (int)ProcessStatuses.Processed;
 
-            _logger.LogDebug($"Stop handling data for the task: {TaskInfo.Name} by step: {step}.");
+            _logger.Debug($"Stop handling data for the task: {TaskInfo.Name} by step: {step}.");
 
             return result.Data;
         }
@@ -207,14 +208,14 @@ public abstract class BackgroundTask<T> : IBackgroundTask where T : class, IPers
                 item.Error = exception.Message;
             }
 
-            _logger.LogError(new BackgroundException(exception));
+            _logger.Error(new BackgroundException(exception));
 
             return data;
         }
     }
     private async Task SaveResult(IPersistentProcessStep currentStep, IPersistentProcessStep? nextStep, IEnumerable<T> data, CancellationToken cToken)
     {
-        _logger.LogTrace($"Start saving data for the task: {TaskInfo.Name} by step: {currentStep}.");
+        _logger.Trace($"Start saving data for the task: {TaskInfo.Name} by step: {currentStep}.");
 
         var stopMessage = $"Stop saving data for the task: {TaskInfo.Name} by step: {currentStep}.";
 
@@ -228,7 +229,7 @@ public abstract class BackgroundTask<T> : IBackgroundTask where T : class, IPers
 
         await SaveData(nextStep, data, cToken);
 
-        _logger.LogDebug(stopMessage);
+        _logger.Debug(stopMessage);
     }
     #endregion
 }

@@ -4,6 +4,7 @@ using Net.Shared.Background.Models;
 using Net.Shared.Background.Models.Exceptions;
 using Net.Shared.Background.Models.Settings;
 using Net.Shared.Background.Schedulers;
+using Net.Shared.Extensions.Logging;
 
 namespace Net.Shared.Background.Core;
 
@@ -29,7 +30,7 @@ public abstract class BackgroundService : Microsoft.Extensions.Hosting.Backgroun
     {
         if (_tasks?.ContainsKey(_taskName) != true)
         {
-            _logger.LogWarn($"The _options was not found for the task '{_taskName}.'");
+            _logger.Warning($"The _options was not found for the task '{_taskName}.'");
             await StopAsync(cToken);
             return;
         }
@@ -39,7 +40,7 @@ public abstract class BackgroundService : Microsoft.Extensions.Hosting.Backgroun
 
         if (!scheduler.IsReady(out var readyInfo))
         {
-            _logger.LogWarn($"The task '{_taskName}' wasn't ready because {readyInfo}.");
+            _logger.Warning($"The task '{_taskName}' wasn't ready because {readyInfo}.");
             await StopAsync(cToken);
             return;
         }
@@ -51,14 +52,14 @@ public abstract class BackgroundService : Microsoft.Extensions.Hosting.Backgroun
         {
             if (scheduler.IsStop(out var stopInfo))
             {
-                _logger.LogWarn($"The task '{_taskName}' was stopped because {stopInfo}.");
+                _logger.Warning($"The task '{_taskName}' was stopped because {stopInfo}.");
                 await StopAsync(cToken);
                 return;
             }
 
             if (!scheduler.IsStart(out var startInfo))
             {
-                _logger.LogWarn($"The task '{_taskName}' wasn't started because {stopInfo}.");
+                _logger.Warning($"The task '{_taskName}' wasn't started because {stopInfo}.");
                 continue;
             }
 
@@ -66,30 +67,30 @@ public abstract class BackgroundService : Microsoft.Extensions.Hosting.Backgroun
             {
                 _count = 0;
 
-                _logger.LogWarn($"The counter for the task '{_taskName}' was reset.");
+                _logger.Warning($"The counter for the task '{_taskName}' was reset.");
             }
 
             _count++;
 
             try
             {
-                _logger.LogTrace($"The task '{_taskName}' is starting...");
+                _logger.Trace($"The task '{_taskName}' is starting...");
 
                 await Run(new(_taskName, _count, settings), cToken);
 
-                _logger.LogTrace($"The task '{_taskName}' was done!");
+                _logger.Trace($"The task '{_taskName}' was done!");
             }
             catch (BackgroundException exception)
             {
-                _logger.LogError(exception);
+                _logger.Error(exception);
             }
             catch (Exception exception)
             {
-                _logger.LogError(new BackgroundException($"Unhandled exception: {exception.Message}"));
+                _logger.Error(new BackgroundException($"Unhandled exception: {exception.Message}"));
             }
             finally
             {
-                _logger.LogTrace($"The next task '{_taskName}' will launch in {settings.Schedule.WorkTime}.");
+                _logger.Trace($"The next task '{_taskName}' will launch in {settings.Schedule.WorkTime}.");
 
                 if (settings.Schedule.IsOnce)
                     scheduler.SetOnce();
@@ -98,7 +99,7 @@ public abstract class BackgroundService : Microsoft.Extensions.Hosting.Backgroun
     }
     public override async Task StopAsync(CancellationToken cToken)
     {
-        _logger.LogWarn($"The task '{_taskName}' was stopped!");
+        _logger.Warning($"The task '{_taskName}' was stopped!");
         await base.StopAsync(cToken);
     }
     #endregion
