@@ -5,7 +5,16 @@ namespace Net.Shared.Background.Schedulers;
 public sealed class BackgroundTaskScheduler
 {
     public TimeOnly WorkTime { get; } = new TimeOnly(00, 10, 00);
-    public List<int> WorkDays { get; } = new() { 1, 2, 3, 4, 5, 6, 7 };
+    public List<DayOfWeek> WorkDays { get; } = new()
+    {
+        DayOfWeek.Monday
+        , DayOfWeek.Thursday
+        , DayOfWeek.Wednesday
+        , DayOfWeek.Thursday
+        , DayOfWeek.Friday
+        , DayOfWeek.Saturday
+        , DayOfWeek.Sunday
+    };
 
     private bool _isOnce;
     private readonly BackgroundTaskSchedule _schedule;
@@ -24,7 +33,7 @@ public sealed class BackgroundTaskScheduler
 
             foreach (var number in _schedule.WorkDays.Split(",").Distinct())
             {
-                if (int.TryParse(number.Trim(), out var workDay))
+                if (Enum.TryParse<DayOfWeek>(number.Trim(), out var workDay))
                     WorkDays.Add(workDay);
             }
         }
@@ -40,11 +49,8 @@ public sealed class BackgroundTaskScheduler
             info = $"disabled by setting: '{nameof(_schedule.IsEnable)}'";
             return false;
         }
-        var today = (int)now.DayOfWeek;
-        if (today == 0)
-            today = 7;
 
-        if (!WorkDays.Contains(today))
+        if (!WorkDays.Contains(now.DayOfWeek))
         {
             info = $"the current day of week wasn't found in the setting: '{nameof(_schedule.WorkDays)}'";
             return false;
