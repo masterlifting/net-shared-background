@@ -193,8 +193,8 @@ public abstract class BackgroundTask<T> : IBackgroundTask where T : class, IPers
             if (!result.IsSuccess)
                 throw new BackgroundException(result.GetError());
 
-            foreach (var item in result.Data.Where(x => x.ProcessStatusId != (int)ProcessStatuses.Error))
-                item.ProcessStatusId = (int)ProcessStatuses.Processed;
+            foreach (var item in result.Data.Where(x => x.StatusId != (int)ProcessStatuses.Error))
+                item.StatusId = (int)ProcessStatuses.Processed;
 
             _logger.Debug($"Handling data for the task '{TaskInfo.Name}' by step '{step.Name}' was succeeded.");
 
@@ -204,7 +204,7 @@ public abstract class BackgroundTask<T> : IBackgroundTask where T : class, IPers
         {
             foreach (var item in data)
             {
-                item.ProcessStatusId = (int)ProcessStatuses.Error;
+                item.StatusId = (int)ProcessStatuses.Error;
                 item.Error = exception.Message;
             }
 
@@ -221,8 +221,8 @@ public abstract class BackgroundTask<T> : IBackgroundTask where T : class, IPers
 
         if (nextStep is not null)
         {
-            foreach (var item in data.Where(x => x.ProcessStatusId == (int)ProcessStatuses.Processed))
-                item.ProcessStatusId = (int)ProcessStatuses.Ready;
+            foreach (var item in data.Where(x => x.StatusId == (int)ProcessStatuses.Processed))
+                item.StatusId = (int)ProcessStatuses.Ready;
 
             stopMessage += $" Next step: '{nextStep.Name}'";
         }
