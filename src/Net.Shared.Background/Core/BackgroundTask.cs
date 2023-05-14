@@ -37,7 +37,7 @@ public abstract class BackgroundTask<T> : IBackgroundTask where T : class, IPers
 
         var handler = RegisterTaskHandler();
 
-        _logger.Trace($"Start task '{taskInfo.Name}' №{taskInfo.Number} with steps count: {steps.Count} as parallel: {taskInfo.Settings.IsParallel}.");
+        _logger.Trace($"The task '{taskInfo.Name}' № {taskInfo.Number} is started.");
 
         if (taskInfo.Settings.IsParallel)
             await HandleStepsParallel(new ConcurrentQueue<IPersistentProcessStep>(steps), handler, cToken);
