@@ -86,7 +86,7 @@ public abstract class BackgroundService : Microsoft.Extensions.Hosting.Backgroun
             }
             catch (Exception exception)
             {
-                _logger.Error(new BackgroundException($"Unhandled exception: {exception.Message}"));
+                _logger.Error(new BackgroundException(exception));
             }
             finally
             {

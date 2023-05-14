@@ -202,13 +202,15 @@ public abstract class BackgroundTask<T> : IBackgroundTask where T : class, IPers
         }
         catch (Exception exception)
         {
+            var backgroundException = new BackgroundException(exception);
+
             foreach (var item in data)
             {
                 item.StatusId = (int)ProcessStatuses.Error;
-                item.Error = exception.Message;
+                item.Error = backgroundException.Message;
             }
 
-            _logger.Error(new BackgroundException(exception));
+            _logger.Error(backgroundException);
 
             return data;
         }

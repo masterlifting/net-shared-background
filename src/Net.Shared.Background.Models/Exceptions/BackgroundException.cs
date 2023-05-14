@@ -1,12 +1,12 @@
 ﻿namespace Net.Shared.Background.Models.Exceptions;
 
-public sealed class BackgroundException : Net.Shared.Exception
+public sealed class BackgroundException : NetSharedException
 {
     public BackgroundException(string message) : base(message)
     {
     }
 
-    public BackgroundException(System.Exception exception) : base(exception)
+    public BackgroundException(Exception exception) : base(exception)
     {
     }
 }
