@@ -219,19 +219,14 @@ public abstract class BackgroundTask<T> : IBackgroundTask where T : class, IPers
     {
         _logger.Trace($"Saving data for the task '{TaskInfo.Name}' by step '{currentStep.Name}' is started.");
 
-        var stopMessage = $"Saving data for the task '{TaskInfo.Name}' by step '{currentStep.Name}' was succeeded.";
-
-        if (nextStep is not null)
-        {
-            foreach (var item in data.Where(x => x.StatusId == (int)ProcessStatuses.Processed))
-                item.StatusId = (int)ProcessStatuses.Ready;
-
-            stopMessage += $" Next step: '{nextStep.Name}'";
-        }
-
         await SaveData(nextStep, data, cToken);
 
-        _logger.Debug(stopMessage);
+        var saveResultMessage = $"Saving data for the task '{TaskInfo.Name}' by step '{currentStep.Name}' was succeeded.";
+
+        if (nextStep is not null)
+            saveResultMessage += $" Next step is '{nextStep.Name}'";
+
+        _logger.Debug(saveResultMessage);
     }
     #endregion
 }
