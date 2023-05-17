@@ -196,7 +196,7 @@ public abstract class BackgroundTask<T> : IBackgroundTask where T : class, IPers
             foreach (var item in result.Data.Where(x => x.StatusId != (int)ProcessStatuses.Error))
                 item.StatusId = (int)ProcessStatuses.Processed;
 
-            _logger.Debug($"Handling data for the task '{TaskInfo.Name}' by step '{step.Name}' was succeeded.");
+            _logger.Debug($"Handling data for the task '{TaskInfo.Name}' by step '{step.Name}' was succeeded. Items count: {result.Data.Length}.");
 
             return result.Data;
         }
@@ -221,7 +221,7 @@ public abstract class BackgroundTask<T> : IBackgroundTask where T : class, IPers
 
         await SaveData(currentStep, nextStep, data, cToken);
 
-        var saveResultMessage = $"Saving data for the task '{TaskInfo.Name}' by step '{currentStep.Name}' was succeeded.";
+        var saveResultMessage = $"Saving data for the task '{TaskInfo.Name}' by step '{currentStep.Name}' was succeeded. Items count: {data.Count()}.";
 
         if (nextStep is not null)
             saveResultMessage += $" Next step is '{nextStep.Name}'";
