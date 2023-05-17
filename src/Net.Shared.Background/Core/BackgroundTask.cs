@@ -51,7 +51,7 @@ public abstract class BackgroundTask<T> : IBackgroundTask where T : class, IPers
     protected abstract Task<IPersistentProcessStep[]> GetSteps(CancellationToken cToken);
     protected abstract IBackgroundTaskHandler<T> RegisterTaskHandler();
     protected abstract Task<T[]> GetUnprocessedData(IPersistentProcessStep step, int limit, DateTime updateTime, int maxAttempts, CancellationToken cToken);
-    protected abstract Task SaveData(IPersistentProcessStep? step, IEnumerable<T> entities, CancellationToken cToken);
+    protected abstract Task SaveData(IPersistentProcessStep currentStep, IPersistentProcessStep? nextStep, IEnumerable<T> data, CancellationToken cToken);
     #endregion
 
     #region PRIVATE FUNCTIONS
@@ -219,7 +219,7 @@ public abstract class BackgroundTask<T> : IBackgroundTask where T : class, IPers
     {
         _logger.Trace($"Saving data for the task '{TaskInfo.Name}' by step '{currentStep.Name}' is started.");
 
-        await SaveData(nextStep, data, cToken);
+        await SaveData(currentStep, nextStep, data, cToken);
 
         var saveResultMessage = $"Saving data for the task '{TaskInfo.Name}' by step '{currentStep.Name}' was succeeded.";
 
