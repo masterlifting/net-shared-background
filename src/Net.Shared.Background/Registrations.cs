@@ -8,12 +8,8 @@ namespace Net.Shared.Background;
 
 public static partial class Registrations
 {
-    public static void ConfigureBackgroundServices(this IServiceCollection services, IConfiguration configuration)
+    public static void ConfigureBackgroundServices(this IServiceCollection services, IConfiguration _)
     {
-        //services
-        //.AddOptions<BackgroundTasksConfiguration>()
-        //.Bind(configuration.GetSection(BackgroundTasksConfiguration.Name));
-
         services.AddSingleton<IBackgroundServiceConfigurationProvider, BackgroundServiceOptionsProvider>();
     }
 }

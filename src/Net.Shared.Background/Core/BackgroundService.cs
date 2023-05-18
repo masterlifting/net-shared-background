@@ -10,12 +10,17 @@ namespace Net.Shared.Background.Core;
 
 public abstract class BackgroundService : Microsoft.Extensions.Hosting.BackgroundService
 {
+    private bool _isConfigurationChanged;
     protected BackgroundService(string taskName, IBackgroundServiceConfigurationProvider provider, ILogger logger)
     {
         _logger = logger;
         _taskName = taskName;
         _tasks = provider.Configuration.Tasks;
-        provider.OnChange(x => _tasks = x.Tasks);
+        provider.OnChange(x =>
+        {
+            _tasks = x.Tasks;
+            _isConfigurationChanged = true;
+        });
     }
 
     #region PRIVATE FIELDS
@@ -25,9 +30,13 @@ public abstract class BackgroundService : Microsoft.Extensions.Hosting.Backgroun
     private Dictionary<string, BackgroundTaskSettings>? _tasks;
     #endregion
 
-    #region OVERRIDED FUNCTIONS
+    #region FUNCTIONS
     protected override async Task ExecuteAsync(CancellationToken cToken)
     {
+    restart:
+
+        _logger.Warning($"The task '{_taskName}' was started.");
+
         if (_tasks?.ContainsKey(_taskName) != true)
         {
             _logger.Warning($"The _options was not found for the task '{_taskName}.'");
@@ -40,16 +49,24 @@ public abstract class BackgroundService : Microsoft.Extensions.Hosting.Backgroun
 
         if (!scheduler.IsReady(out var readyInfo))
         {
-            _logger.Warning($"The task '{_taskName}' wasn't ready because {readyInfo}.");
+            _logger.Warning($"The task '{_taskName}' was not ready because {readyInfo}.");
             await StopAsync(cToken);
             return;
         }
 
         var timerPeriod = scheduler.WorkTime.ToTimeSpan();
-        using var timer = new PeriodicTimer(timerPeriod);
+        var timer = new PeriodicTimer(timerPeriod);
 
         do
         {
+            if (_isConfigurationChanged)
+            {
+                _isConfigurationChanged = false;
+                _count = 0;
+                _logger.Warning($"The task '{_taskName}' will be restarted because the configuration was changed.");
+                break;
+            }
+
             if (scheduler.IsStop(out var stopInfo))
             {
                 _logger.Warning($"The task '{_taskName}' was stopped because {stopInfo}.");
@@ -59,7 +76,7 @@ public abstract class BackgroundService : Microsoft.Extensions.Hosting.Backgroun
 
             if (!scheduler.IsStart(out var startInfo))
             {
-                _logger.Warning($"The task '{_taskName}' wasn't started because {stopInfo}.");
+                _logger.Warning($"The task '{_taskName}' was not started because {startInfo}.");
                 continue;
             }
 
@@ -74,11 +91,11 @@ public abstract class BackgroundService : Microsoft.Extensions.Hosting.Backgroun
 
             try
             {
-                _logger.Trace($"The task '{_taskName}' is starting...");
+                _logger.Trace($"Process for the task'{_taskName}' is started.");
 
                 await Run(new(_taskName, _count, settings), cToken);
 
-                _logger.Trace($"The task '{_taskName}' was done!");
+                _logger.Trace($"Process for the task'{_taskName}' was done.");
             }
             catch (BackgroundException exception)
             {
@@ -90,17 +107,21 @@ public abstract class BackgroundService : Microsoft.Extensions.Hosting.Backgroun
             }
             finally
             {
-                _logger.Trace($"The next task '{_taskName}' will launch in {settings.Schedule.WorkTime}.");
+                _logger.Trace($"The next task process '{_taskName}' will launch in {settings.Schedule.WorkTime}.");
 
                 if (settings.Schedule.IsOnce)
                     scheduler.SetOnce();
             }
-        } while (await timer.WaitForNextTickAsync(cToken));
+        } while (!cToken.IsCancellationRequested && await timer.WaitForNextTickAsync(cToken));
+
+        timer.Dispose();
+
+        goto restart;
     }
     public override async Task StopAsync(CancellationToken cToken)
     {
-        _logger.Warning($"The task '{_taskName}' was stopped!");
         await base.StopAsync(cToken);
+        _logger.Warning($"The task '{_taskName}' was stopped!");
     }
     #endregion
 

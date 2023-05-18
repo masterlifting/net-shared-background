@@ -159,6 +159,8 @@ public abstract class BackgroundTask<T> : IBackgroundTask where T : class, IPers
 
             var processableData = await GetProcessableData(step, TaskInfo.Settings.ChunkSize, cToken);
 
+            _logger.Trace($"Getting processable data for the task '{TaskInfo.Name}' by step '{step.Name}' was succeeded. Items count: {processableData.Length}.");
+
             if (TaskInfo.Settings.RetryPolicy is not null && TaskInfo.Number % TaskInfo.Settings.RetryPolicy.EveryTime == 0)
             {
                 _logger.Trace($"Getting unprocessable data for the task '{TaskInfo.Name}' by step '{step.Name}' is started.");
@@ -169,10 +171,14 @@ public abstract class BackgroundTask<T> : IBackgroundTask where T : class, IPers
                 var unprocessableResult = await GetUnprocessedData(step, TaskInfo.Settings.ChunkSize, retryDate, TaskInfo.Settings.RetryPolicy.MaxAttempts, cToken);
 
                 if (unprocessableResult.Any())
+                {
+                    _logger.Trace($"Getting unprocessable data for the task '{TaskInfo.Name}' by step '{step.Name}' was succeeded. Items count: {processableData.Length}.");
+
                     processableData = processableData.Concat(unprocessableResult).ToArray();
+                }
             }
 
-            _logger.Debug($"Getting data for the task '{TaskInfo.Name}' by step '{step.Name}' was succeeded. Items count: {processableData.Length}.");
+            _logger.Debug($"Getting all the data for the task '{TaskInfo.Name}' by step '{step.Name}' was succeeded. Items count: {processableData.Length}.");
 
             return processableData;
         }
