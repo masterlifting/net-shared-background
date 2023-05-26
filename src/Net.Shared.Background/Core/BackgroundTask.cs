@@ -146,7 +146,7 @@ public abstract class BackgroundTask<T> : IBackgroundTask where T : class, IPers
             if (stepNames.TryGetValue(stepName, out var step))
                 result.Enqueue(step);
             else
-                throw new BackgroundException($"The handler '{stepName}' from _options was not found in the database");
+                throw new BackgroundException($"The handler '{stepName}' from _options was not found in the database.");
         }
 
         return result;
@@ -159,7 +159,7 @@ public abstract class BackgroundTask<T> : IBackgroundTask where T : class, IPers
 
             var processableData = await GetProcessableData(step, TaskInfo.Settings.ChunkSize, cToken);
 
-            _logger.Trace($"Getting processable data for the task '{TaskInfo.Name}' by step '{step.Name}' was succeeded. Items count: {processableData.Length}.");
+            _logger.Trace($"Getting processable data for the task '{TaskInfo.Name}' by step '{step.Name}' was done. Items count: {processableData.Length}.");
 
             if (TaskInfo.Settings.RetryPolicy is not null && TaskInfo.Number % TaskInfo.Settings.RetryPolicy.EveryTime == 0)
             {
@@ -172,13 +172,13 @@ public abstract class BackgroundTask<T> : IBackgroundTask where T : class, IPers
 
                 if (unprocessableResult.Any())
                 {
-                    _logger.Trace($"Getting unprocessable data for the task '{TaskInfo.Name}' by step '{step.Name}' was succeeded. Items count: {processableData.Length}.");
+                    _logger.Trace($"Getting unprocessable data for the task '{TaskInfo.Name}' by step '{step.Name}' was done. Items count: {processableData.Length}.");
 
                     processableData = processableData.Concat(unprocessableResult).ToArray();
                 }
             }
 
-            _logger.Debug($"Getting all the data for the task '{TaskInfo.Name}' by step '{step.Name}' was succeeded. Items count: {processableData.Length}.");
+            _logger.Debug($"Getting all the data for the task '{TaskInfo.Name}' by step '{step.Name}' was done. Items count: {processableData.Length}.");
 
             return processableData;
         }
@@ -202,7 +202,7 @@ public abstract class BackgroundTask<T> : IBackgroundTask where T : class, IPers
             foreach (var item in result.Data.Where(x => x.StatusId != (int)ProcessStatuses.Error))
                 item.StatusId = (int)ProcessStatuses.Processed;
 
-            _logger.Debug($"Handling data for the task '{TaskInfo.Name}' by step '{step.Name}' was succeeded. Items count: {result.Data.Length}.");
+            _logger.Debug($"Handling data for the task '{TaskInfo.Name}' by step '{step.Name}' was done. Items count: {result.Data.Length}.");
 
             return result.Data;
         }
@@ -227,7 +227,7 @@ public abstract class BackgroundTask<T> : IBackgroundTask where T : class, IPers
 
         await SaveData(currentStep, nextStep, data, cToken);
 
-        var saveResultMessage = $"Saving data for the task '{TaskInfo.Name}' by step '{currentStep.Name}' was succeeded. Items count: {data.Count()}.";
+        var saveResultMessage = $"Saving data for the task '{TaskInfo.Name}' by step '{currentStep.Name}' was done. Items count: {data.Count()}.";
 
         if (nextStep is not null)
             saveResultMessage += $" Next step is '{nextStep.Name}'";
