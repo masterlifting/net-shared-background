@@ -178,7 +178,7 @@ public abstract class BackgroundTask<T> : IBackgroundTask where T : class, IPers
                 }
             }
 
-            _logger.Debug($"Getting all the data for the task '{TaskInfo.Name}' by step '{step.Name}' was done. Items count: {processableData.Length}.");
+            _logger.Debug($"Getting data for the task '{TaskInfo.Name}' by step '{step.Name}' was done. Items count: {processableData.Length}.");
 
             return processableData;
         }
@@ -208,15 +208,13 @@ public abstract class BackgroundTask<T> : IBackgroundTask where T : class, IPers
         }
         catch (Exception exception)
         {
-            var backgroundException = new BackgroundException(exception);
-
-            foreach (var item in data)
+            foreach (var item in data.Where(x => x.StatusId != (int)ProcessStatuses.Error))
             {
                 item.StatusId = (int)ProcessStatuses.Error;
-                item.Error = backgroundException.Message;
+                item.Error = exception.Message;
             }
 
-            _logger.Error(backgroundException);
+            _logger.Error(new BackgroundException(exception));
 
             return data;
         }
