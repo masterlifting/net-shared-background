@@ -196,7 +196,7 @@ public abstract class BackgroundTask<T> : IBackgroundTask where T : class, IPers
 
             var result = await handler.Handle(step, data, cToken);
 
-            if (!result.IsSuccess)
+            if (result.Errors.Any())
                 throw new BackgroundException(result.GetError());
 
             foreach (var item in result.Data.Where(x => x.StatusId != (int)ProcessStatuses.Error))
