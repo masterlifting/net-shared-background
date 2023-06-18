@@ -1,10 +1,11 @@
 ﻿using Microsoft.Extensions.Logging;
+
 using Net.Shared.Background.Abstractions;
 using Net.Shared.Background.Models;
 using Net.Shared.Background.Models.Exceptions;
 using Net.Shared.Background.Models.Settings;
 using Net.Shared.Background.Schedulers;
-using Net.Shared.Extensions.Logging;
+using Net.Shared.Extensions;
 
 namespace Net.Shared.Background.Core;
 

@@ -1,8 +1,9 @@
 using Microsoft.Extensions.Options;
+
 using Net.Shared.Background.Abstractions;
 using Net.Shared.Background.Models.Settings;
 
-namespace Net.Shared.Background.Core;
+namespace Net.Shared.Background.ConfigurationProviders;
 
 public class BackgroundServiceOptionsProvider : IBackgroundServiceConfigurationProvider
 {

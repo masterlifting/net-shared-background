@@ -1,12 +1,15 @@
 using System.Collections.Concurrent;
+
 using Microsoft.Extensions.Logging;
+
 using Net.Shared.Background.Abstractions;
 using Net.Shared.Background.Models;
 using Net.Shared.Background.Models.Exceptions;
 using Net.Shared.Background.Models.Settings;
-using Net.Shared.Extensions.Logging;
+using Net.Shared.Extensions;
 using Net.Shared.Persistence.Abstractions.Entities;
 using Net.Shared.Persistence.Abstractions.Entities.Catalogs;
+
 using static Net.Shared.Persistence.Models.Constants.Enums;
 
 namespace Net.Shared.Background.Core;
@@ -146,7 +149,7 @@ public abstract class BackgroundTask<T> : IBackgroundTask where T : class, IPers
             if (stepNames.TryGetValue(stepName, out var step))
                 result.Enqueue(step);
             else
-                throw new BackgroundException($"The handler '{stepName}' from _options was not found in the database.");
+                throw new BackgroundException($"The step '{stepName}' from the sattings was not found in the database.");
         }
 
         return result;
@@ -178,14 +181,13 @@ public abstract class BackgroundTask<T> : IBackgroundTask where T : class, IPers
                 }
             }
 
-            _logger.Debug($"Getting data for the task '{TaskInfo.Name}' by step '{step.Name}' was done. Items count: {processableData.Length}.");
+            _logger.Trace($"Getting full data for the task '{TaskInfo.Name}' by step '{step.Name}' was done. Items count: {processableData.Length}.");
 
             return processableData;
         }
         catch (Exception exception)
         {
-            _logger.Error(new BackgroundException(exception));
-            return Array.Empty<T>();
+            throw new BackgroundException(exception);
         }
     }
     private async Task<T[]> HandleStep(IPersistentProcessStep step, IBackgroundTaskHandler<T> handler, T[] data, CancellationToken cToken)
@@ -202,35 +204,47 @@ public abstract class BackgroundTask<T> : IBackgroundTask where T : class, IPers
             foreach (var item in result.Data.Where(x => x.StatusId != (int)ProcessStatuses.Error))
                 item.StatusId = (int)ProcessStatuses.Processed;
 
-            _logger.Debug($"Handling data for the task '{TaskInfo.Name}' by step '{step.Name}' was done. Items count: {result.Data.Length}.");
+            _logger.Trace($"Handling data for the task '{TaskInfo.Name}' by step '{step.Name}' was done. Items count: {result.Data.Length}.");
 
             return result.Data;
         }
         catch (Exception exception)
         {
-            foreach (var item in data.Where(x => x.StatusId != (int)ProcessStatuses.Error))
+            for(int i = 0; i < data.Length; i++)
             {
-                item.StatusId = (int)ProcessStatuses.Error;
-                item.Error = exception.Message;
+                data[i].StatusId = (int)ProcessStatuses.Error;
+                data[i].Error = exception.Message;
             }
-
-            _logger.Error(new BackgroundException(exception));
 
             return data;
         }
     }
-    private async Task SaveResult(IPersistentProcessStep currentStep, IPersistentProcessStep? nextStep, IEnumerable<T> data, CancellationToken cToken)
+    private async Task SaveResult(IPersistentProcessStep currentStep, IPersistentProcessStep? nextStep, T[] data, CancellationToken cToken)
     {
         _logger.Trace($"Saving data for the task '{TaskInfo.Name}' by step '{currentStep.Name}' is started.");
 
         await SaveData(currentStep, nextStep, data, cToken);
 
-        var saveResultMessage = $"Saving data for the task '{TaskInfo.Name}' by step '{currentStep.Name}' was done. Items count: {data.Count()}.";
+        var saveResultMessage = $"Saving data for the task '{TaskInfo.Name}' by step '{currentStep.Name}' was done. Items count: {data.Length}.";
 
         if (nextStep is not null)
             saveResultMessage += $" Next step is '{nextStep.Name}'";
 
-        _logger.Debug(saveResultMessage);
+        _logger.Trace(saveResultMessage);
+
+        var processedCount = data.Length;
+        var unprocessedCount = 0;
+        
+        for (int i = 0; i < data.Length; i++)
+        {
+            if (data[i].StatusId == (int)ProcessStatuses.Error)
+            {
+                processedCount--;
+                unprocessedCount++;
+            }
+        }
+
+        _logger.Debug($"The task '{TaskInfo.Name}' was processed. Processed: {processedCount}. Unprocessed: {unprocessedCount}.");
     }
     #endregion
 }

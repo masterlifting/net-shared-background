@@ -1,4 +1,6 @@
-﻿namespace Net.Shared.Background.Models.Exceptions;
+﻿using Net.Shared.Exceptions;
+
+namespace Net.Shared.Background.Models.Exceptions;
 
 public sealed class BackgroundException : NetSharedException
 {
