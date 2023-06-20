@@ -92,11 +92,11 @@ public abstract class BackgroundService : Microsoft.Extensions.Hosting.Backgroun
 
             try
             {
-                _logger.Trace($"Process for the task'{_taskName}' is started.");
+                _logger.Trace($"Process for the task '{_taskName}' is started.");
 
                 await Run(new(_taskName, _count, settings), cToken);
 
-                _logger.Trace($"Process for the task'{_taskName}' was done.");
+                _logger.Trace($"Process for the task '{_taskName}' was done.");
             }
             catch (BackgroundException exception)
             {
