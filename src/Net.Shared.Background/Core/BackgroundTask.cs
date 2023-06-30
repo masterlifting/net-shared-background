@@ -210,7 +210,7 @@ public abstract class BackgroundTask<T> : IBackgroundTask where T : class, IPers
         }
         catch (Exception exception)
         {
-            for(int i = 0; i < data.Length; i++)
+            for (int i = 0; i < data.Length; i++)
             {
                 data[i].StatusId = (int)ProcessStatuses.Error;
                 data[i].Error = exception.Message;
@@ -234,7 +234,7 @@ public abstract class BackgroundTask<T> : IBackgroundTask where T : class, IPers
 
         var processedCount = data.Length;
         var unprocessedCount = 0;
-        
+
         for (int i = 0; i < data.Length; i++)
         {
             if (data[i].StatusId == (int)ProcessStatuses.Error)
@@ -244,7 +244,7 @@ public abstract class BackgroundTask<T> : IBackgroundTask where T : class, IPers
             }
         }
 
-        _logger.Debug($"The task '{TaskInfo.Name}' was processed. Processed: {processedCount}. Unprocessed: {unprocessedCount}.");
+        _logger.Debug($"The task '{TaskInfo.Name}' was done. Processed: {processedCount}. Unprocessed: {unprocessedCount}.");
     }
     #endregion
 }
