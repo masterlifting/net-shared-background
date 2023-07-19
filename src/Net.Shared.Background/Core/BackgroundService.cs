@@ -37,12 +37,11 @@ public abstract class BackgroundService : Microsoft.Extensions.Hosting.Backgroun
     
     restart:
         
-        //TODO: The task is started twice!
         _logger.Warning($"The task '{_taskName}' was started.");
 
         if (_tasks?.ContainsKey(_taskName) != true)
         {
-            _logger.Warning($"The _options was not found for the task '{_taskName}.'");
+            _logger.Warning($"The options was not found for the task '{_taskName}.'");
             await StopAsync(cToken);
             return;
         }
@@ -129,6 +128,6 @@ public abstract class BackgroundService : Microsoft.Extensions.Hosting.Backgroun
     #endregion
 
     #region ABSTRACT FUNCTIONS
-    protected abstract Task Run(BackgroundTaskInfo taskInfo, CancellationToken cToken = default);
+    protected abstract Task Run(BackgroundTaskModel taskModel, CancellationToken cToken = default);
     #endregion
 }

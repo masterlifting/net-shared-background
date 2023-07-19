@@ -5,7 +5,6 @@ using Microsoft.Extensions.Logging;
 using Net.Shared.Background.Abstractions;
 using Net.Shared.Background.Models;
 using Net.Shared.Background.Models.Exceptions;
-using Net.Shared.Background.Models.Settings;
 using Net.Shared.Extensions;
 using Net.Shared.Persistence.Abstractions.Entities;
 using Net.Shared.Persistence.Abstractions.Entities.Catalogs;
@@ -19,30 +18,26 @@ public abstract class BackgroundTask<T> : IBackgroundTask where T : class, IPers
     protected BackgroundTask(ILogger logger)
     {
         _logger = logger;
-        TaskInfo = new("Default", 0, new BackgroundTaskSettings());
     }
 
     #region PRIVATE FIELDS
     private readonly SemaphoreSlim _semaphore = new(1);
     private readonly ILogger _logger;
-    #endregion
-
-    #region PUBLIC PROPERTIES
-    public BackgroundTaskInfo TaskInfo { get; private set; }
+    private BackgroundTaskModel taskModel = default!;
     #endregion
 
     #region PUBLIC FUNCTIONS
-    public async Task Run(BackgroundTaskInfo taskInfo, CancellationToken cToken)
+    public async Task Run(BackgroundTaskModel model, CancellationToken cToken)
     {
-        TaskInfo = taskInfo;
+        taskModel = model;
 
         var steps = await GetQueueSteps(cToken);
 
-        var handler = RegisterTaskHandler();
+        var handler = RegisterStepHandler();
 
-        _logger.Trace($"The task '{taskInfo.Name}' № {taskInfo.Number} is started.");
+        _logger.Trace($"The task '{model.Name}' № {model.Number} is started.");
 
-        if (taskInfo.Settings.IsParallel)
+        if (model.Settings.IsParallel)
             await HandleStepsParallel(new ConcurrentQueue<IPersistentProcessStep>(steps), handler, cToken);
         else
             await HandleSteps(steps, handler, cToken);
@@ -52,13 +47,13 @@ public abstract class BackgroundTask<T> : IBackgroundTask where T : class, IPers
     #region ABSTRACT FUNCTIONS
     protected abstract Task<T[]> GetProcessableData(IPersistentProcessStep step, int limit, CancellationToken cToken);
     protected abstract Task<IPersistentProcessStep[]> GetSteps(CancellationToken cToken);
-    protected abstract IBackgroundTaskHandler<T> RegisterTaskHandler();
+    protected abstract IBackgroundTaskStep<T> RegisterStepHandler();
     protected abstract Task<T[]> GetUnprocessedData(IPersistentProcessStep step, int limit, DateTime updateTime, int maxAttempts, CancellationToken cToken);
     protected abstract Task SaveData(IPersistentProcessStep currentStep, IPersistentProcessStep? nextStep, IEnumerable<T> data, CancellationToken cToken);
     #endregion
 
     #region PRIVATE FUNCTIONS
-    private async Task HandleSteps(Queue<IPersistentProcessStep> steps, IBackgroundTaskHandler<T> handler, CancellationToken cToken)
+    private async Task HandleSteps(Queue<IPersistentProcessStep> steps, IBackgroundTaskStep<T> handler, CancellationToken cToken)
     {
         for (var i = 0; i <= steps.Count; i++)
         {
@@ -89,7 +84,7 @@ public abstract class BackgroundTask<T> : IBackgroundTask where T : class, IPers
             }
         }
     }
-    private Task HandleStepsParallel(ConcurrentQueue<IPersistentProcessStep> steps, IBackgroundTaskHandler<T> handler, CancellationToken cToken)
+    private Task HandleStepsParallel(ConcurrentQueue<IPersistentProcessStep> steps, IBackgroundTaskStep<T> handler, CancellationToken cToken)
     {
         var tasks = Enumerable.Range(0, steps.Count).Select(async _ =>
         {
@@ -140,11 +135,11 @@ public abstract class BackgroundTask<T> : IBackgroundTask where T : class, IPers
     {
         var steps = await GetSteps(cToken);
 
-        var result = new Queue<IPersistentProcessStep>(TaskInfo.Settings.Steps.Length);
+        var result = new Queue<IPersistentProcessStep>(taskModel.Settings.Steps.Length);
 
         var stepNames = steps.ToDictionary(x => x.Name);
 
-        foreach (var stepName in TaskInfo.Settings.Steps)
+        foreach (var stepName in taskModel.Settings.Steps)
         {
             if (stepNames.TryGetValue(stepName, out var step))
                 result.Enqueue(step);
@@ -158,30 +153,30 @@ public abstract class BackgroundTask<T> : IBackgroundTask where T : class, IPers
     {
         try
         {
-            _logger.Trace($"Getting processable data for the task '{TaskInfo.Name}' by step '{step.Name}' is started.");
+            _logger.Trace($"Getting processable data for the task '{taskModel.Name}' by step '{step.Name}' is started.");
 
-            var processableData = await GetProcessableData(step, TaskInfo.Settings.ChunkSize, cToken);
+            var processableData = await GetProcessableData(step, taskModel.Settings.ChunkSize, cToken);
 
-            _logger.Trace($"Getting processable data for the task '{TaskInfo.Name}' by step '{step.Name}' was done. Items count: {processableData.Length}.");
+            _logger.Trace($"Getting processable data for the task '{taskModel.Name}' by step '{step.Name}' was done. Items count: {processableData.Length}.");
 
-            if (TaskInfo.Settings.RetryPolicy is not null && TaskInfo.Number % TaskInfo.Settings.RetryPolicy.EveryTime == 0)
+            if (taskModel.Settings.RetryPolicy is not null && taskModel.Number % taskModel.Settings.RetryPolicy.EveryTime == 0)
             {
-                _logger.Trace($"Getting unprocessable data for the task '{TaskInfo.Name}' by step '{step.Name}' is started.");
+                _logger.Trace($"Getting unprocessable data for the task '{taskModel.Name}' by step '{step.Name}' is started.");
 
-                var retryTime = TimeOnly.Parse(TaskInfo.Settings.Schedule.WorkTime).ToTimeSpan() * TaskInfo.Settings.RetryPolicy.EveryTime;
+                var retryTime = TimeOnly.Parse(taskModel.Settings.Schedule.WorkTime).ToTimeSpan() * taskModel.Settings.RetryPolicy.EveryTime;
                 var retryDate = DateTime.UtcNow.Add(-retryTime);
 
-                var unprocessableResult = await GetUnprocessedData(step, TaskInfo.Settings.ChunkSize, retryDate, TaskInfo.Settings.RetryPolicy.MaxAttempts, cToken);
+                var unprocessableResult = await GetUnprocessedData(step, taskModel.Settings.ChunkSize, retryDate, taskModel.Settings.RetryPolicy.MaxAttempts, cToken);
 
                 if (unprocessableResult.Any())
                 {
-                    _logger.Trace($"Getting unprocessable data for the task '{TaskInfo.Name}' by step '{step.Name}' was done. Items count: {processableData.Length}.");
+                    _logger.Trace($"Getting unprocessable data for the task '{taskModel.Name}' by step '{step.Name}' was done. Items count: {processableData.Length}.");
 
                     processableData = processableData.Concat(unprocessableResult).ToArray();
                 }
             }
 
-            _logger.Trace($"Getting full data for the task '{TaskInfo.Name}' by step '{step.Name}' was done. Items count: {processableData.Length}.");
+            _logger.Trace($"Getting full data for the task '{taskModel.Name}' by step '{step.Name}' was done. Items count: {processableData.Length}.");
 
             return processableData;
         }
@@ -190,11 +185,11 @@ public abstract class BackgroundTask<T> : IBackgroundTask where T : class, IPers
             throw new BackgroundException(exception);
         }
     }
-    private async Task<T[]> HandleStep(IPersistentProcessStep step, IBackgroundTaskHandler<T> handler, T[] data, CancellationToken cToken)
+    private async Task<T[]> HandleStep(IPersistentProcessStep step, IBackgroundTaskStep<T> handler, T[] data, CancellationToken cToken)
     {
         try
         {
-            _logger.Trace($"Handling data for the task '{TaskInfo.Name}' by step '{step.Name}' is started.");
+            _logger.Trace($"Handling data for the task '{taskModel.Name}' by step '{step.Name}' is started.");
 
             var result = await handler.Handle(step, data, cToken);
 
@@ -204,7 +199,7 @@ public abstract class BackgroundTask<T> : IBackgroundTask where T : class, IPers
             foreach (var item in result.Data.Where(x => x.StatusId != (int)ProcessStatuses.Error))
                 item.StatusId = (int)ProcessStatuses.Processed;
 
-            _logger.Trace($"Handling data for the task '{TaskInfo.Name}' by step '{step.Name}' was done. Items count: {result.Data.Length}.");
+            _logger.Trace($"Handling data for the task '{taskModel.Name}' by step '{step.Name}' was done. Items count: {result.Data.Length}.");
 
             return result.Data;
         }
@@ -221,11 +216,11 @@ public abstract class BackgroundTask<T> : IBackgroundTask where T : class, IPers
     }
     private async Task SaveResult(IPersistentProcessStep currentStep, IPersistentProcessStep? nextStep, T[] data, CancellationToken cToken)
     {
-        _logger.Trace($"Saving data for the task '{TaskInfo.Name}' by step '{currentStep.Name}' is started.");
+        _logger.Trace($"Saving data for the task '{taskModel.Name}' by step '{currentStep.Name}' is started.");
 
         await SaveData(currentStep, nextStep, data, cToken);
 
-        var saveResultMessage = $"Saving data for the task '{TaskInfo.Name}' by step '{currentStep.Name}' was done. Items count: {data.Length}.";
+        var saveResultMessage = $"Saving data for the task '{taskModel.Name}' by step '{currentStep.Name}' was done. Items count: {data.Length}.";
 
         if (nextStep is not null)
             saveResultMessage += $" Next step is '{nextStep.Name}'";
@@ -244,7 +239,7 @@ public abstract class BackgroundTask<T> : IBackgroundTask where T : class, IPers
             }
         }
 
-        _logger.Debug($"The task '{TaskInfo.Name}' was done. Processed: {processedCount}. Unprocessed: {unprocessedCount}.");
+        _logger.Debug($"The task '{taskModel.Name}' was done. Processed: {processedCount}. Unprocessed: {unprocessedCount}.");
     }
     #endregion
 }

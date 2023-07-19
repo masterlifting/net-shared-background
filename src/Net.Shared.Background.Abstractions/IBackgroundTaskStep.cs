@@ -3,7 +3,7 @@ using Net.Shared.Persistence.Abstractions.Entities.Catalogs;
 
 namespace Net.Shared.Background.Abstractions;
 
-public interface IBackgroundTaskHandler<T> where T : class
+public interface IBackgroundTaskStep<T> where T : class
 {
     Task<Result<T>> Handle(IPersistentProcessStep step, IEnumerable<T> data, CancellationToken cToken);
 }
