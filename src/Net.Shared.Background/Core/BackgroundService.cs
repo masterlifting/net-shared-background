@@ -34,8 +34,10 @@ public abstract class BackgroundService : Microsoft.Extensions.Hosting.Backgroun
     #region FUNCTIONS
     protected override async Task ExecuteAsync(CancellationToken cToken)
     {
+    
     restart:
-
+        
+        //TODO: The task is started twice!
         _logger.Warning($"The task '{_taskName}' was started.");
 
         if (_tasks?.ContainsKey(_taskName) != true)
