@@ -239,7 +239,7 @@ public abstract class BackgroundTask<T> : IBackgroundTask where T : class, IPers
             }
         }
 
-        _logger.Debug($"The task '{taskModel.Name}' was done. Processed: {processedCount}. Unprocessed: {unprocessedCount}.");
+        _logger.Debug($"Task '{taskModel.Name}' with step '{currentStep.Name}' was done. Processed: {processedCount}. Unprocessed: {unprocessedCount}.");
     }
     #endregion
 }
