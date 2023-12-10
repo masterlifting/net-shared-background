@@ -1,7 +1,6 @@
 ﻿using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-
-using Net.Shared.Background.Abstractions;
+using Net.Shared.Background.Abstractions.Interfaces;
 using Net.Shared.Background.ConfigurationProviders;
 
 namespace Net.Shared.Background;

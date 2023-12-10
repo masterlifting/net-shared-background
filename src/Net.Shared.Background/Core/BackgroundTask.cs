@@ -1,15 +1,15 @@
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 
 using Microsoft.Extensions.Logging;
 
-using Net.Shared.Background.Abstractions;
-using Net.Shared.Background.Models;
-using Net.Shared.Background.Models.Exceptions;
+using Net.Shared.Background.Abstractions.Interfaces;
+using Net.Shared.Background.Abstractions.Models;
+using Net.Shared.Background.Abstractions.Models.Exceptions;
 using Net.Shared.Extensions;
-using Net.Shared.Persistence.Abstractions.Entities;
-using Net.Shared.Persistence.Abstractions.Entities.Catalogs;
+using Net.Shared.Persistence.Abstractions.Interfaces.Entities;
+using Net.Shared.Persistence.Abstractions.Interfaces.Entities.Catalogs;
 
-using static Net.Shared.Persistence.Models.Constants.Enums;
+using static Net.Shared.Persistence.Abstractions.Constants.Enums;
 
 namespace Net.Shared.Background.Core;
 

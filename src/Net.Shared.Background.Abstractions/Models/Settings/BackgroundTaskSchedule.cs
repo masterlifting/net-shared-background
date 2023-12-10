@@ -1,4 +1,4 @@
-﻿namespace Net.Shared.Background.Models.Settings;
+﻿namespace Net.Shared.Background.Abstractions.Models.Settings;
 
 public sealed record BackgroundTaskSchedule
 {

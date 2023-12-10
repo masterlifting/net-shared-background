@@ -1,7 +1,7 @@
 using Microsoft.Extensions.Options;
 
-using Net.Shared.Background.Abstractions;
-using Net.Shared.Background.Models.Settings;
+using Net.Shared.Background.Abstractions.Interfaces;
+using Net.Shared.Background.Abstractions.Models.Settings;
 
 namespace Net.Shared.Background.ConfigurationProviders;
 

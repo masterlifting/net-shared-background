@@ -1,6 +1,6 @@
-﻿using Net.Shared.Background.Models.Settings;
+﻿using Net.Shared.Background.Abstractions.Models.Settings;
 
-namespace Net.Shared.Background.Abstractions;
+namespace Net.Shared.Background.Abstractions.Interfaces;
 
 public interface IBackgroundServiceConfigurationProvider
 {
