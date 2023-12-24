@@ -12,8 +12,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\..\Net.Shared.Extensions\src\Net.Shared.Extensions\Net.Shared.Extensions.csproj" />
-    <ProjectReference Include="..\..\..\Net.Shared.Exceptions\src\Net.Shared.Exceptions\Net.Shared.Exceptions.csproj" />
+    <ProjectReference Include="..\..\..\shared-exceptions\src\Net.Shared.Exceptions\Net.Shared.Exceptions.csproj" />
+    <ProjectReference Include="..\..\..\shared-extensions\src\Net.Shared.Extensions\Net.Shared.Extensions.csproj" />
     <ProjectReference Include="..\Net.Shared.Background.Abstractions\Net.Shared.Background.Abstractions.csproj" />
   </ItemGroup>
 
