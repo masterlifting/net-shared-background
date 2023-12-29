@@ -101,11 +101,11 @@ public abstract class BackgroundService : Microsoft.Extensions.Hosting.Backgroun
             }
             catch (BackgroundException exception)
             {
-                _logger.Error(exception);
+                _logger.ErrorShort(exception);
             }
             catch (Exception exception)
             {
-                _logger.Error(new BackgroundException(exception));
+                _logger.ErrorShort(new BackgroundException(exception));
             }
             finally
             {

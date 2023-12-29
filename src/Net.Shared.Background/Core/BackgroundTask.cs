@@ -80,7 +80,7 @@ public abstract class BackgroundTask<T> : IBackgroundTask where T : class, IPers
             }
             catch (Exception exception)
             {
-                _logger.Error(new BackgroundException(exception));
+                _logger.ErrorShort(new BackgroundException(exception));
             }
         }
     }
@@ -126,7 +126,7 @@ public abstract class BackgroundTask<T> : IBackgroundTask where T : class, IPers
             if (task.IsFaulted)
             {
                 var exception = task.Exception ?? new AggregateException("Unhandled exception of the paralel task.");
-                _logger.Error(new BackgroundException(exception));
+                _logger.ErrorShort(new BackgroundException(exception));
             }
         }, cToken);
     }
