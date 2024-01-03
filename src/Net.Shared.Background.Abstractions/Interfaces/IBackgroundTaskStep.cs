@@ -1,4 +1,4 @@
-﻿using Net.Shared.Abstractions.Models.Domain;
+﻿using Net.Shared.Abstractions.Models.Data;
 using Net.Shared.Persistence.Abstractions.Interfaces.Entities.Catalogs;
 
 namespace Net.Shared.Background.Abstractions.Interfaces;
