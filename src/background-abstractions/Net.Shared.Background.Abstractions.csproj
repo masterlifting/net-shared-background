@@ -11,7 +11,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\..\shared-persistence\src\Net.Shared.Persistence.Abstractions\Net.Shared.Persistence.Abstractions.csproj" />
+    <ProjectReference Include="..\..\..\shared-persistence\src\persistence-abstractions\Net.Shared.Persistence.Abstractions.csproj" />
   </ItemGroup>
 
 </Project>

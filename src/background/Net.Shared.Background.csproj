@@ -7,8 +7,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\..\shared\src\Net.Shared\Net.Shared.csproj" />
-    <ProjectReference Include="..\Net.Shared.Background.Abstractions\Net.Shared.Background.Abstractions.csproj" />
+    <ProjectReference Include="..\..\..\shared\src\shared\Net.Shared.csproj" />
+    <ProjectReference Include="..\background-abstractions\Net.Shared.Background.Abstractions.csproj" />
   </ItemGroup>
 
 </Project>
