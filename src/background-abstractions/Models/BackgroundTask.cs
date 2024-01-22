@@ -2,4 +2,4 @@
 
 namespace Net.Shared.Background.Abstractions.Models;
 
-public sealed record BackgroundTaskModel(string Name, int Number, BackgroundTaskSettings Settings);
+public sealed record BackgroundTask(string Name, int Number, BackgroundTaskSettings Settings);

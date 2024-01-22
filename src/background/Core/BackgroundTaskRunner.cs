@@ -11,16 +11,13 @@ using static Net.Shared.Persistence.Abstractions.Constants.Enums;
 
 namespace Net.Shared.Background.Core;
 
-public abstract class BackgroundTask<T>(ILogger logger) : IBackgroundTask where T : class, IPersistentProcess
+public abstract class BackgroundTaskRunner<T>(ILogger logger) where T : class, IPersistentProcess
 {
-    #region PRIVATE FIELDS
     private readonly ILogger _log = logger;
     private readonly SemaphoreSlim _semaphore = new(1);
-    private BackgroundTaskModel _taskModel = default!;
-    #endregion
+    private BackgroundTask _taskModel = default!;
 
-    #region PUBLIC FUNCTIONS
-    public async Task Run(BackgroundTaskModel model, CancellationToken cToken)
+    public async Task Run(BackgroundTask model, CancellationToken cToken)
     {
         _taskModel = model;
 
@@ -35,18 +32,17 @@ public abstract class BackgroundTask<T>(ILogger logger) : IBackgroundTask where 
         else
             await HandleSteps(steps, handler, cToken);
     }
-    #endregion
 
     #region ABSTRACT FUNCTIONS
     protected abstract Task<T[]> GetProcessableData(IPersistentProcessStep step, int limit, CancellationToken cToken);
     protected abstract Task<IPersistentProcessStep[]> GetSteps(CancellationToken cToken);
-    protected abstract IBackgroundTaskStep<T> RegisterStepHandler();
+    protected abstract IBackgroundTaskStepHandler<T> RegisterStepHandler();
     protected abstract Task<T[]> GetUnprocessedData(IPersistentProcessStep step, int limit, DateTime updateTime, int maxAttempts, CancellationToken cToken);
     protected abstract Task SaveData(IPersistentProcessStep currentStep, IPersistentProcessStep? nextStep, IEnumerable<T> data, CancellationToken cToken);
     #endregion
 
     #region PRIVATE FUNCTIONS
-    private async Task HandleSteps(Queue<IPersistentProcessStep> steps, IBackgroundTaskStep<T> handler, CancellationToken cToken)
+    private async Task HandleSteps(Queue<IPersistentProcessStep> steps, IBackgroundTaskStepHandler<T> handler, CancellationToken cToken)
     {
         for (var i = 0; i <= steps.Count; i++)
         {
@@ -77,7 +73,7 @@ public abstract class BackgroundTask<T>(ILogger logger) : IBackgroundTask where 
             }
         }
     }
-    private Task HandleStepsParallel(ConcurrentQueue<IPersistentProcessStep> steps, IBackgroundTaskStep<T> handler, CancellationToken cToken)
+    private Task HandleStepsParallel(ConcurrentQueue<IPersistentProcessStep> steps, IBackgroundTaskStepHandler<T> handler, CancellationToken cToken)
     {
         var tasks = Enumerable.Range(0, steps.Count).Select(async _ =>
         {
@@ -171,7 +167,7 @@ public abstract class BackgroundTask<T>(ILogger logger) : IBackgroundTask where 
 
         return processableData;
     }
-    private async Task<T[]> HandleStep(IPersistentProcessStep step, IBackgroundTaskStep<T> handler, T[] data, CancellationToken cToken)
+    private async Task<T[]> HandleStep(IPersistentProcessStep step, IBackgroundTaskStepHandler<T> handler, T[] data, CancellationToken cToken)
     {
         try
         {

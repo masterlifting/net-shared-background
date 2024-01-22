@@ -23,38 +23,36 @@ public abstract class BackgroundService : Microsoft.Extensions.Hosting.Backgroun
         });
     }
 
-    #region PRIVATE FIELDS
     private int _count;
     private readonly ILogger _log;
     private readonly string _taskName;
     private Dictionary<string, BackgroundTaskSettings>? _tasks;
-    #endregion
-
-    #region FUNCTIONS
+    
     protected override async Task ExecuteAsync(CancellationToken cToken)
     {
 
 restart:
 
-        _log.Warn($"The task '{_taskName}' was started.");
+        _log.Warn($"Background process of the '{_taskName}' has started.");
 
         if (_tasks?.ContainsKey(_taskName) != true)
         {
-            var exception = new KeyNotFoundException($"The options was not found for the task '{_taskName}.'");
-
-            _log.ErrorShort(exception);
+            _log.ErrorShort(new InvalidOperationException($"Options for the '{_taskName}' was not found."));
 
             await StopAsync(cToken);
+
             return;
         }
 
-        var settings = _tasks[_taskName];
-        var scheduler = new BackgroundTaskScheduler(settings.Schedule);
+        var taskSettings = _tasks[_taskName];
+        var taskSchedule = new BackgroundTaskScheduler(taskSettings.Schedule);
 
-        if (!scheduler.IsReady(out var readyInfo))
+        if (!taskSchedule.IsReady(out var notReadyReason))
         {
-            _log.Warn($"The task '{_taskName}' was not ready because {readyInfo}.");
+            _log.Warn($"Task '{_taskName}' is not ready. Reason: {notReadyReason}.");
+
             await StopAsync(cToken);
+
             return;
         }
 
@@ -62,28 +60,31 @@ restart:
 
         do
         {
-            timer = new PeriodicTimer(scheduler.WorkTime.ToTimeSpan());
+            timer = new PeriodicTimer(taskSchedule.WorkTime);
 
             if (_isConfigurationChanged)
             {
                 _isConfigurationChanged = false;
+
                 _count = 0;
-                _log.Warn($"The task '{_taskName}' will be restarted because the configuration was changed.");
+
+                _log.Warn($"Configuration of the '{_taskName}' was changed. It will be restarted.");
+
                 break;
             }
 
-            if (scheduler.IsStop(out var stopInfo))
+            if (taskSchedule.IsStop(out var stoppingReason))
             {
-                _log.Warn($"The task '{_taskName}' was stopped because {stopInfo}.");
+                _log.Warn($"Task '{_taskName}' has stopped. Reason: {stoppingReason}.");
                 await StopAsync(cToken);
                 return;
             }
 
-            if (!scheduler.IsStart(out var startInfo, out var period))
+            if (!taskSchedule.IsStart(out var startInfo, out var isNotStartingReason))
             {
-                _log.Warn($"The task '{_taskName}' was not started because {startInfo}.");
+                _log.Warn($"Task '{_taskName}' has not started. Reason: {startInfo}.");
 
-                timer = new PeriodicTimer(period);
+                timer = new PeriodicTimer(isNotStartingReason);
 
                 continue;
             }
@@ -92,29 +93,29 @@ restart:
             {
                 _count = 0;
 
-                _log.Warn($"The counter for the task '{_taskName}' was reset.");
+                _log.Warn($"Counter for the task '{_taskName}' was reset.");
             }
 
             _count++;
 
             try
             {
-                _log.Trace($"Process for the task '{_taskName}' is started.");
+                _log.Trace($"Process of the '{_taskName}' has started.");
 
-                await Run(new(_taskName, _count, settings), cToken);
+                await Run(new(_taskName, _count, taskSettings), cToken);
 
-                _log.Trace($"Process for the task '{_taskName}' was done.");
+                _log.Trace($"Process of the '{_taskName}' has been done.");
             }
             catch (Exception exception)
             {
-                _log.ErrorFull(exception);
+                _log.ErrorCompact(exception);
             }
             finally
             {
-                _log.Trace($"The next task process '{_taskName}' will launch in {settings.Schedule.WorkTime}.");
+                _log.Trace($"The '{_taskName}' next process will be launched in {taskSettings.Schedule.WorkTime}.");
 
-                if (settings.Schedule.IsOnce)
-                    scheduler.SetOnce();
+                if (taskSettings.Schedule.IsOnce)
+                    taskSchedule.SetOnce();
             }
         } while (!cToken.IsCancellationRequested && await timer.WaitForNextTickAsync(cToken));
 
@@ -125,11 +126,9 @@ restart:
     public override async Task StopAsync(CancellationToken cToken)
     {
         await base.StopAsync(cToken);
-        _log.Warn($"The task '{_taskName}' was stopped!");
-    }
-    #endregion
 
-    #region ABSTRACT FUNCTIONS
-    protected abstract Task Run(BackgroundTaskModel taskModel, CancellationToken cToken = default);
-    #endregion
+        _log.Warn($"Background service of the '{_taskName}' has been stopped.");
+    }
+
+    protected abstract Task Run(BackgroundTask taskModel, CancellationToken cToken = default);
 }

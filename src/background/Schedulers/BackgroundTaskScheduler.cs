@@ -4,8 +4,8 @@ namespace Net.Shared.Background.Schedulers;
 
 public sealed class BackgroundTaskScheduler
 {
-    public TimeOnly WorkTime { get; private set; } = new(00, 10, 00);
-    public List<DayOfWeek> WorkDays { get; } =
+    public TimeSpan WorkTime { get; private set; } = new(00, 10, 00);
+    public DayOfWeek[] WorkDays { get; } =
     [
         DayOfWeek.Monday
         , DayOfWeek.Thursday
@@ -25,86 +25,88 @@ public sealed class BackgroundTaskScheduler
 
         _isOnce = schedule.IsOnce;
 
-        WorkTime = TimeOnly.Parse(schedule.WorkTime);
+        WorkTime = TimeOnly.Parse(schedule.WorkTime).ToTimeSpan();
 
         if (!string.IsNullOrWhiteSpace(_schedule.WorkDays))
         {
-            WorkDays.Clear();
+            var workDaysNumbers = _schedule.WorkDays.Split(",").Distinct().ToArray();
 
-            foreach (var number in _schedule.WorkDays.Split(",").Distinct())
+            WorkDays = new DayOfWeek[workDaysNumbers.Length];
+
+            for (int i = 0; i < workDaysNumbers.Length; i++)
             {
-                if (Enum.TryParse<DayOfWeek>(number.Trim(), out var workDay))
-                    WorkDays.Add(workDay);
+                if (Enum.TryParse<DayOfWeek>(workDaysNumbers[i].Trim(), out var workDay))
+                    WorkDays[i] = workDay;
             }
         }
     }
 
-    public bool IsReady(out string info)
+    public bool IsReady(out string? reason)
     {
-        info = string.Empty;
+        reason = null;
         var now = DateTime.UtcNow;
 
         if (!_schedule.IsEnable)
         {
-            info = $"disabled by setting: '{nameof(_schedule.IsEnable)}'";
+            reason = "is not enabled.";
             return false;
         }
 
         if (!WorkDays.Contains(now.DayOfWeek))
         {
-            info = $"the current day of week wasn't found in the setting: '{nameof(_schedule.WorkDays)}'";
+            reason = "today is not enabled.";
             return false;
         }
 
         return true;
     }
-    public bool IsStart(out string info, out TimeSpan period)
+    public bool IsStart(out string? reason, out TimeSpan wakeupPeriod)
     {
-        info = string.Empty;
-        period = WorkTime.ToTimeSpan();
+        reason = null;
+        wakeupPeriod = WorkTime;
 
         var now = DateTime.UtcNow;
 
         if (_schedule.DateStart > DateOnly.FromDateTime(now))
         {
-            info = $"the task's starting date '{nameof(_schedule.DateStart)}: {_schedule.DateStart: yyyy-MM-dd HH:mm:ss}' not already yet";
+            reason = $"date of start is {_schedule.DateStart: yyyy-MM-dd}.";
 
-            period = _schedule.DateStart.ToDateTime(_schedule.TimeStart).Subtract(now);
+            wakeupPeriod = _schedule.DateStart.ToDateTime(_schedule.TimeStart).Subtract(now);
             
             return false;
         }
 
         if (_schedule.TimeStart > TimeOnly.FromDateTime(now))
         {
-            info = $"the task's starting time '{nameof(_schedule.TimeStart)}: {_schedule.TimeStart: HH:mm:ss}' not already yet";
+            reason = $"time of start is {_schedule.TimeStart: HH:mm:ss}.";
 
-            period = _schedule.DateStart.ToDateTime(_schedule.TimeStart).Subtract(now);
+            wakeupPeriod = _schedule.DateStart.ToDateTime(_schedule.TimeStart).Subtract(now);
 
             return false;
         }
 
         return true;
     }
-    public bool IsStop(out string info)
+    public bool IsStop(out string? reason)
     {
-        info = string.Empty;
+        reason = null;
         var now = DateTime.UtcNow;
 
         if (_schedule.DateStop < DateOnly.FromDateTime(now))
         {
-            info = $"the task's stopping date '{nameof(_schedule.DateStop)}: {_schedule.DateStop: yyyy-MM-dd}' has come";
+            reason = $"date of stop is {_schedule.DateStop: yyyy-MM-dd}.";
             return true;
         }
 
         if (_schedule.TimeStop < TimeOnly.FromDateTime(now))
         {
-            info = $"the task's stopping time '{nameof(_schedule.TimeStop)}: {_schedule.TimeStop: HH:mm:ss}' has come";
+            reason = $"time of stop is {_schedule.TimeStop: HH:mm:ss}.";
             return true;
         }
 
         if (_isOnce)
         {
-            info = $"the task is running once by setting: '{nameof(_schedule.IsOnce)}'";
+            reason = "used once.";
             return true;
         }
 
