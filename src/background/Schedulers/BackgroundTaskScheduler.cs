@@ -4,9 +4,9 @@ namespace Net.Shared.Background.Schedulers;
 
 public sealed class BackgroundTaskScheduler
 {
-    public TimeOnly WorkTime { get; } = new TimeOnly(00, 10, 00);
-    public List<DayOfWeek> WorkDays { get; } = new()
-    {
+    public TimeOnly WorkTime { get; private set; } = new(00, 10, 00);
+    public List<DayOfWeek> WorkDays { get; } =
+    [
         DayOfWeek.Monday
         , DayOfWeek.Thursday
         , DayOfWeek.Wednesday
@@ -14,7 +14,7 @@ public sealed class BackgroundTaskScheduler
         , DayOfWeek.Friday
         , DayOfWeek.Saturday
         , DayOfWeek.Sunday
-    };
+    ];
 
     private bool _isOnce;
     private readonly BackgroundTaskSchedule _schedule;
@@ -58,14 +58,28 @@ public sealed class BackgroundTaskScheduler
 
         return true;
     }
-    public bool IsStart(out string info)
+    public bool IsStart(out string info, out TimeSpan period)
     {
         info = string.Empty;
+        period = WorkTime.ToTimeSpan();
+
         var now = DateTime.UtcNow;
 
-        if (_schedule.DateTimeStart > now)
+        if (_schedule.DateStart > DateOnly.FromDateTime(now))
         {
-            info = $"the task's starting time '{nameof(_schedule.DateTimeStart)}: {_schedule.DateTimeStart: yyyy-MM-dd HH:mm:ss}' not already yet";
+            info = $"the task's starting date '{nameof(_schedule.DateStart)}: {_schedule.DateStart: yyyy-MM-dd HH:mm:ss}' not already yet";
+
+            period = _schedule.DateStart.ToDateTime(_schedule.TimeStart).Subtract(now);
+            
+            return false;
+        }
+
+        if (_schedule.TimeStart > TimeOnly.FromDateTime(now))
+        {
+            info = $"the task's starting time '{nameof(_schedule.TimeStart)}: {_schedule.TimeStart: HH:mm:ss}' not already yet";
+
+            period = _schedule.DateStart.ToDateTime(_schedule.TimeStart).Subtract(now);
+
             return false;
         }
 
@@ -76,9 +90,15 @@ public sealed class BackgroundTaskScheduler
         info = string.Empty;
         var now = DateTime.UtcNow;
 
-        if (_schedule.DateTimeStop < now)
+        if (_schedule.DateStop < DateOnly.FromDateTime(now))
         {
-            info = $"the task's stopping time '{nameof(_schedule.DateTimeStop)}: {_schedule.DateTimeStop: yyyy-MM-dd HH:mm:ss}' has come";
+            info = $"the task's stopping date '{nameof(_schedule.DateStop)}: {_schedule.DateStop: yyyy-MM-dd}' has come";
+            return true;
+        }
+
+        if (_schedule.TimeStop < TimeOnly.FromDateTime(now))
+        {
+            info = $"the task's stopping time '{nameof(_schedule.TimeStop)}: {_schedule.TimeStop: HH:mm:ss}' has come";
             return true;
         }
 

@@ -11,12 +11,12 @@ namespace Net.Shared.Background.Core;
 public abstract class BackgroundService : Microsoft.Extensions.Hosting.BackgroundService
 {
     private bool _isConfigurationChanged;
-    protected BackgroundService(string taskName, IBackgroundServiceConfigurationProvider provider, ILogger logger)
+    protected BackgroundService(string taskName, IBackgroundServiceConfigurationProvider configurationProvider, ILogger logger)
     {
         _log = logger;
         _taskName = taskName;
-        _tasks = provider.Configuration.Tasks;
-        provider.OnChange(x =>
+        _tasks = configurationProvider.Configuration.Tasks;
+        configurationProvider.OnChange(x =>
         {
             _tasks = x.Tasks;
             _isConfigurationChanged = true;
@@ -33,14 +33,17 @@ public abstract class BackgroundService : Microsoft.Extensions.Hosting.Backgroun
     #region FUNCTIONS
     protected override async Task ExecuteAsync(CancellationToken cToken)
     {
-    
-    restart:
-        
+
+restart:
+
         _log.Warn($"The task '{_taskName}' was started.");
 
         if (_tasks?.ContainsKey(_taskName) != true)
         {
-            _log.Warn($"The options was not found for the task '{_taskName}.'");
+            var exception = new KeyNotFoundException($"The options was not found for the task '{_taskName}.'");
+            
+            _log.ErrorShort(exception);
+            
             await StopAsync(cToken);
             return;
         }
@@ -55,11 +58,12 @@ public abstract class BackgroundService : Microsoft.Extensions.Hosting.Backgroun
             return;
         }
 
-        var timerPeriod = scheduler.WorkTime.ToTimeSpan();
-        var timer = new PeriodicTimer(timerPeriod);
+        PeriodicTimer timer;
 
         do
         {
+            timer = new PeriodicTimer(scheduler.WorkTime.ToTimeSpan());
+
             if (_isConfigurationChanged)
             {
                 _isConfigurationChanged = false;
@@ -75,9 +79,12 @@ public abstract class BackgroundService : Microsoft.Extensions.Hosting.Backgroun
                 return;
             }
 
-            if (!scheduler.IsStart(out var startInfo))
+            if (!scheduler.IsStart(out var startInfo, out var period))
             {
                 _log.Warn($"The task '{_taskName}' was not started because {startInfo}.");
+
+                timer = new PeriodicTimer(period);
+
                 continue;
             }
 
