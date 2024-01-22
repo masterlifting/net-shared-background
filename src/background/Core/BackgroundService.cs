@@ -41,9 +41,9 @@ restart:
         if (_tasks?.ContainsKey(_taskName) != true)
         {
             var exception = new KeyNotFoundException($"The options was not found for the task '{_taskName}.'");
-            
+
             _log.ErrorShort(exception);
-            
+
             await StopAsync(cToken);
             return;
         }
@@ -107,7 +107,7 @@ restart:
             }
             catch (Exception exception)
             {
-                _log.ErrorCompact(exception);
+                _log.ErrorFull(exception);
             }
             finally
             {
