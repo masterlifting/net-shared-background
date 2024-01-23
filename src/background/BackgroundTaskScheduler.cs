@@ -1,19 +1,19 @@
 ﻿using Net.Shared.Background.Abstractions.Models.Settings;
 
-namespace Net.Shared.Background.Schedulers;
+namespace Net.Shared.Background;
 
 public sealed class BackgroundTaskScheduler
 {
     public TimeSpan WorkTime { get; private set; } = new(00, 10, 00);
     public DayOfWeek[] WorkDays { get; } =
     [
-        DayOfWeek.Monday
-        , DayOfWeek.Thursday
-        , DayOfWeek.Wednesday
-        , DayOfWeek.Thursday
-        , DayOfWeek.Friday
-        , DayOfWeek.Saturday
-        , DayOfWeek.Sunday
+        DayOfWeek.Monday,
+        DayOfWeek.Thursday,
+        DayOfWeek.Wednesday,
+        DayOfWeek.Thursday,
+        DayOfWeek.Friday,
+        DayOfWeek.Saturday,
+        DayOfWeek.Sunday
     ];
 
     private bool _isOnce;
@@ -33,7 +33,7 @@ public sealed class BackgroundTaskScheduler
 
             WorkDays = new DayOfWeek[workDaysNumbers.Length];
 
-            for (int i = 0; i < workDaysNumbers.Length; i++)
+            for (var i = 0; i < workDaysNumbers.Length; i++)
             {
                 if (Enum.TryParse<DayOfWeek>(workDaysNumbers[i].Trim(), out var workDay))
                     WorkDays[i] = workDay;
@@ -48,13 +48,13 @@ public sealed class BackgroundTaskScheduler
 
         if (!_schedule.IsEnable)
         {
-            reason = "is not enabled.";
+            reason = "is not enabled";
             return false;
         }
 
         if (!WorkDays.Contains(now.DayOfWeek))
         {
-            reason = "today is not enabled.";
+            reason = "today is not enabled";
             return false;
         }
 
@@ -69,16 +69,16 @@ public sealed class BackgroundTaskScheduler
 
         if (_schedule.DateStart > DateOnly.FromDateTime(now))
         {
-            reason = $"date of start is {_schedule.DateStart: yyyy-MM-dd}.";
+            reason = $"date start is{_schedule.DateStart: yyyy-MM-dd}";
 
             wakeupPeriod = _schedule.DateStart.ToDateTime(_schedule.TimeStart).Subtract(now);
-            
+
             return false;
         }
 
         if (_schedule.TimeStart > TimeOnly.FromDateTime(now))
         {
-            reason = $"time of start is {_schedule.TimeStart: HH:mm:ss}.";
+            reason = $"time start is{_schedule.TimeStart: HH:mm:ss}";
 
             wakeupPeriod = _schedule.DateStart.ToDateTime(_schedule.TimeStart).Subtract(now);
 
@@ -94,19 +94,19 @@ public sealed class BackgroundTaskScheduler
 
         if (_schedule.DateStop < DateOnly.FromDateTime(now))
         {
-            reason = $"date of stop is {_schedule.DateStop: yyyy-MM-dd}.";
+            reason = $"date stop is{_schedule.DateStop: yyyy-MM-dd}";
             return true;
         }
 
         if (_schedule.TimeStop < TimeOnly.FromDateTime(now))
         {
-            reason = $"time of stop is {_schedule.TimeStop: HH:mm:ss}.";
+            reason = $"time stop is{_schedule.TimeStop: HH:mm:ss}";
             return true;
         }
 
         if (_isOnce)
         {
-            reason = "used once.";
+            reason = "used once";
             return true;
         }
 

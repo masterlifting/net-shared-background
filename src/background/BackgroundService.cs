@@ -3,23 +3,24 @@
 using Net.Shared.Background.Abstractions.Interfaces;
 using Net.Shared.Background.Abstractions.Models;
 using Net.Shared.Background.Abstractions.Models.Settings;
-using Net.Shared.Background.Schedulers;
 using Net.Shared.Extensions.Logging;
 
-namespace Net.Shared.Background.Core;
+namespace Net.Shared.Background;
 
 public abstract class BackgroundService : Microsoft.Extensions.Hosting.BackgroundService
 {
-    private bool _isConfigurationChanged;
-    protected BackgroundService(string taskName, IBackgroundServiceConfigurationProvider configurationProvider, ILogger logger)
+    private bool _isSettingsChanged;
+    protected BackgroundService(string taskName, IBackgroundSettingsProvider settingsProvider, ILogger logger)
     {
         _log = logger;
         _taskName = taskName;
-        _tasks = configurationProvider.Configuration.Tasks;
-        configurationProvider.OnChange(x =>
+        
+        _tasks = settingsProvider.Settings.Tasks;
+        
+        settingsProvider.OnChange(x =>
         {
             _tasks = x.Tasks;
-            _isConfigurationChanged = true;
+            _isSettingsChanged = true;
         });
     }
 
@@ -27,7 +28,7 @@ public abstract class BackgroundService : Microsoft.Extensions.Hosting.Backgroun
     private readonly ILogger _log;
     private readonly string _taskName;
     private Dictionary<string, BackgroundTaskSettings>? _tasks;
-    
+
     protected override async Task ExecuteAsync(CancellationToken cToken)
     {
 
@@ -37,7 +38,7 @@ restart:
 
         if (_tasks?.ContainsKey(_taskName) != true)
         {
-            _log.ErrorShort(new InvalidOperationException($"Options for the '{_taskName}' was not found."));
+            _log.ErrorShort(new InvalidOperationException($"Settings for the '{_taskName}' was not found."));
 
             await StopAsync(cToken);
 
@@ -62,9 +63,9 @@ restart:
         {
             timer = new PeriodicTimer(taskSchedule.WorkTime);
 
-            if (_isConfigurationChanged)
+            if (_isSettingsChanged)
             {
-                _isConfigurationChanged = false;
+                _isSettingsChanged = false;
 
                 _count = 0;
 
@@ -102,7 +103,7 @@ restart:
             {
                 _log.Trace($"Process of the '{_taskName}' has started.");
 
-                await Run(new(_taskName, _count, taskSettings), cToken);
+                await StartTask(new(_taskName, _count, taskSettings), cToken);
 
                 _log.Trace($"Process of the '{_taskName}' has been done.");
             }
@@ -130,5 +131,5 @@ restart:
         _log.Warn($"Background service of the '{_taskName}' has been stopped.");
     }
 
-    protected abstract Task Run(BackgroundTask taskModel, CancellationToken cToken = default);
+    protected abstract Task StartTask(BackgroundTask task, CancellationToken cToken = default);
 }
