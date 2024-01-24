@@ -14,9 +14,9 @@ public abstract class BackgroundService : Microsoft.Extensions.Hosting.Backgroun
     {
         _log = logger;
         _taskName = taskName;
-        
+
         _tasks = settingsProvider.Settings.Tasks;
-        
+
         settingsProvider.OnChange(x =>
         {
             _tasks = x.Tasks;
@@ -31,6 +31,8 @@ public abstract class BackgroundService : Microsoft.Extensions.Hosting.Backgroun
 
     protected override async Task ExecuteAsync(CancellationToken cToken)
     {
+        if (cToken.IsCancellationRequested)
+            return;
 
 restart:
 
@@ -38,7 +40,7 @@ restart:
 
         if (_tasks?.ContainsKey(_taskName) != true)
         {
-            _log.ErrorShort(new InvalidOperationException($"Settings for the '{_taskName}' was not found."));
+            _log.Warn($"Task '{_taskName}' was not found in the configuration.");
 
             await StopAsync(cToken);
 
@@ -46,23 +48,12 @@ restart:
         }
 
         var taskSettings = _tasks[_taskName];
-        var taskSchedule = new BackgroundTaskScheduler(taskSettings.Schedule);
+        var taskScheduler = new BackgroundTaskScheduler(taskSettings.Schedule);
 
-        if (!taskSchedule.IsReady(out var notReadyReason))
-        {
-            _log.Warn($"Task '{_taskName}' is not ready. Reason: {notReadyReason}.");
-
-            await StopAsync(cToken);
-
-            return;
-        }
-
-        PeriodicTimer timer;
+        var timer = new PeriodicTimer(taskScheduler.WaitingPeriod);
 
         do
         {
-            timer = new PeriodicTimer(taskSchedule.WorkTime);
-
             if (_isSettingsChanged)
             {
                 _isSettingsChanged = false;
@@ -74,20 +65,22 @@ restart:
                 break;
             }
 
-            if (taskSchedule.IsStop(out var stoppingReason))
+            if (taskScheduler.IsStopped(out var reason))
             {
-                _log.Warn($"Task '{_taskName}' has stopped. Reason: {stoppingReason}.");
-                
+                _log.Warn($"Task '{_taskName}' has stopped. Reason: {reason}.");
+
                 await StopAsync(cToken);
-                
+
                 return;
             }
 
-            if (!taskSchedule.IsStart(out var startInfo, out var isNotStartingReason))
+            if (!taskScheduler.ReadyToStart(out reason, out var waitingPeriod))
             {
-                _log.Warn($"Task '{_taskName}' has not started. Reason: {startInfo}.");
+                _log.Warn($"Task '{_taskName}' is not ready to start. Reason: {reason}.");
 
-                timer = new PeriodicTimer(isNotStartingReason);
+                timer = new PeriodicTimer(waitingPeriod);
+
+                _log.Warn($"Next time the task '{_taskName}' will be launched in {waitingPeriod:dd\\.hh\\:mm\\:ss}.");
 
                 continue;
             }
@@ -111,14 +104,14 @@ restart:
             }
             catch (Exception exception)
             {
-                _log.ErrorCompact(exception);
+                _log.ErrorFull(exception);
             }
             finally
             {
-                _log.Trace($"The next task '{_taskName}' will be launched in {taskSettings.Schedule.WorkTime}.");
+                _log.Trace($"Next time the task '{_taskName}' will be launched in {taskScheduler.WaitingPeriod:dd\\.hh\\:mm\\:ss}.");
 
                 if (taskSettings.Schedule.IsOnce)
-                    taskSchedule.SetOnce();
+                    taskScheduler.SetOnce();
             }
         } while (!cToken.IsCancellationRequested && await timer.WaitForNextTickAsync(cToken));
 

@@ -4,135 +4,101 @@ namespace Net.Shared.Background;
 
 public sealed class BackgroundTaskScheduler
 {
-    public TimeSpan WorkTime { get; private set; } = new(00, 10, 00);
-    public DayOfWeek[] WorkDays { get; } =
-    [
-        DayOfWeek.Monday,
-        DayOfWeek.Thursday,
-        DayOfWeek.Wednesday,
-        DayOfWeek.Thursday,
-        DayOfWeek.Friday,
-        DayOfWeek.Saturday,
-        DayOfWeek.Sunday
-    ];
+    private static readonly Dictionary<string, DayOfWeek> WorkDaysNumbersMapper = new(StringComparer.OrdinalIgnoreCase)
+    {
+        { "0", DayOfWeek.Sunday },
+        { "1", DayOfWeek.Monday },
+        { "2", DayOfWeek.Tuesday },
+        { "3", DayOfWeek.Wednesday },
+        { "4", DayOfWeek.Thursday },
+        { "5", DayOfWeek.Friday },
+        { "6", DayOfWeek.Saturday }
+    };
+    private static readonly Dictionary<string, DayOfWeek> WorkDaysLettersMapper = new(StringComparer.OrdinalIgnoreCase)
+    {
+        { "sun", DayOfWeek.Sunday },
+        { "mon", DayOfWeek.Monday },
+        { "tue", DayOfWeek.Tuesday },
+        { "wed", DayOfWeek.Wednesday },
+        { "thu", DayOfWeek.Thursday },
+        { "fri", DayOfWeek.Friday },
+        { "sat", DayOfWeek.Saturday }
+    };
+    private readonly List<DayOfWeek> _workDays = new(7);
 
+    private readonly short _timeShift;
+    private readonly bool _isEnable;
+    private readonly DateTime _startWork;
+    private readonly DateTime? _stopWork;
+    private readonly TimeOnly _startTime;
+    private readonly TimeOnly? _stopTime;
+    
     private bool _setOnce;
-    private readonly BackgroundTaskSchedule _schedule;
+
+    public TimeSpan WaitingPeriod { get; }
 
     public BackgroundTaskScheduler(BackgroundTaskSchedule schedule)
     {
-        _schedule = schedule;
+        _timeShift = schedule.TimeShift;
 
+        _isEnable = schedule.IsEnable;
         _setOnce = schedule.IsOnce;
 
-        WorkTime = TimeOnly.Parse(schedule.WorkTime).ToTimeSpan();
+        var now = DateTime.UtcNow.AddHours(_timeShift);
 
-        if (!string.IsNullOrWhiteSpace(_schedule.WorkDays))
+        _startWork = schedule.StartWork ?? now;
+        _stopWork = schedule.StopWork;
+                                                                     
+        _startTime = schedule.StartTime ?? TimeOnly.FromDateTime(now);
+        _stopTime = schedule.StopTime;
+
+        WaitingPeriod = TimeOnly.Parse(schedule.WorkTime).ToTimeSpan();
+
+        var workDays = schedule.WorkDays
+            .Split(',')
+            .Distinct()
+            .Select(x => x.Trim())
+            .ToArray();
+
+        for (var i = 0; i < workDays.Length; i++)
         {
-            var workDaysNumbers = _schedule.WorkDays.Split(",").Distinct().ToArray();
-
-            WorkDays = new DayOfWeek[workDaysNumbers.Length];
-
-            for (var i = 0; i < workDaysNumbers.Length; i++)
+            if (WorkDaysNumbersMapper.TryGetValue(workDays[i], out var day))
             {
-                if (Enum.TryParse<DayOfWeek>(workDaysNumbers[i].Trim(), out var workDay))
-                    WorkDays[i] = workDay;
+                _workDays.Add(day);
             }
-        }
-    }
-
-    public bool IsReady(out string? reason)
-    {
-        reason = null;
-
-        if (!_schedule.IsEnable)
-        {
-            reason = "is not enabled";
-            return false;
-        }
-
-        // This condition is very important to avoid an infinite loop
-        if(WorkDays.Length == 0)
-        {
-            reason = "work days is empty";
-            return false;
-        }
-
-        return true;
-    }
-    public bool IsStart(out string? reason, out TimeSpan wakeupPeriod)
-    {
-        reason = null;
-        wakeupPeriod = WorkTime;
-
-        var now = DateTime.UtcNow;
-
-        if (!WorkDays.Contains(now.DayOfWeek))
-        {
-            reason = $"day of week {now.DayOfWeek} is not enabled";
-
-            var next = now;
-            
-            do
+            else if (WorkDaysLettersMapper.TryGetValue(workDays[i], out day))
             {
-                next = next.AddDays(1);
-            }
-            while (!WorkDays.Contains(next.DayOfWeek));
-
-            wakeupPeriod = next.Subtract(now);
-            
-            return false;
-        }
-
-        if (_schedule.DateStart > DateOnly.FromDateTime(now))
-        {
-            reason = $"date start is{_schedule.DateStart: yyyy-MM-dd}";
-
-            wakeupPeriod = _schedule.DateStart.ToDateTime(_schedule.TimeStart).Subtract(now);
-
-            return false;
-        }
-
-        if (_schedule.TimeStart > TimeOnly.FromDateTime(now))
-        {
-            reason = $"time start is{_schedule.TimeStart: HH:mm:ss}";
-
-            wakeupPeriod = _schedule.DateStart.ToDateTime(_schedule.TimeStart).Subtract(now);
-
-            return false;
-        }
-
-        return true;
-    }
-    public bool IsStop(out string? reason)
-    {
-        reason = null;
-        var now = DateTime.UtcNow;
-
-        if (_schedule.DateStop < DateOnly.FromDateTime(now))
-        {
-            if (_schedule.TimeStop.HasValue)
-            {
-                if(_schedule.TimeStop.Value < TimeOnly.FromDateTime(now))
-                {
-                    reason = $"time stop is{_schedule.TimeStop: HH:mm:ss} on {_schedule.DateStop: yyyy-MM-dd}";
-                    return true;
-                }
-                else
-                {
-                    return false;
-                }
+                _workDays.Add(day);
             }
             else
             {
-                reason = $"date stop is{_schedule.DateStop: yyyy-MM-dd}";
-                return true;
+                throw new ArgumentException($"Invalid work day: {workDays[i]}");
             }
         }
+    }
 
-        if (_schedule.TimeStop < TimeOnly.FromDateTime(now))
+    public bool IsStopped(out string? reason)
+    {
+        reason = null;
+
+        if (!_isEnable)
         {
-            reason = $"time stop is{_schedule.TimeStop: HH:mm:ss}";
+            reason = "is not enabled";
+            return true;
+        }
+
+        // This condition is very important to avoid an infinite loop
+        if (_workDays.Count == 0)
+        {
+            reason = "work days is empty";
+            return true;
+        }
+
+        var now = DateTime.UtcNow.AddHours(_timeShift);
+
+        if (_stopWork < now)
+        {
+            reason = $"work stopped at{_stopWork: yyyy-MM-dd HH:mm:ss}";
             return true;
         }
 
@@ -143,6 +109,59 @@ public sealed class BackgroundTaskScheduler
         }
 
         return false;
+    }
+    public bool ReadyToStart(out string? reason, out TimeSpan waitingPeriod)
+    {
+        reason = null;
+        waitingPeriod = WaitingPeriod;
+        
+        var now = DateTime.UtcNow.AddHours(_timeShift);
+
+        if (!_workDays.Contains(now.DayOfWeek))
+        {
+            reason = $"day of week {now.DayOfWeek} is not enabled";
+
+            var next = now;
+
+            do
+            {
+                next = next.AddDays(1);
+            }
+            while (!_workDays.Contains(next.DayOfWeek));
+
+            waitingPeriod = next.Date.Add(_startTime.ToTimeSpan()).Subtract(now);
+
+            return false;
+        }
+
+        if (_startWork > now)
+        {
+            reason = $"time to start is{_startWork: yyyy-MM-dd HH:mm:ss}";
+
+            waitingPeriod = _startWork.Subtract(now);
+
+            return false;
+        }
+
+        if(_stopTime < TimeOnly.FromDateTime(now))
+        {
+            reason = $"time to stop is{_stopTime: HH:mm:ss}";
+
+            waitingPeriod = now.Date.AddDays(1).Add(_startTime.ToTimeSpan()).Subtract(now);
+
+            return false;
+        }
+
+        if(_startTime > TimeOnly.FromDateTime(now))
+        {
+            reason = $"time to start is{_startTime: HH:mm:ss}";
+
+            waitingPeriod = now.Date.Add(_startTime.ToTimeSpan()).Subtract(now);
+
+            return false;
+        }
+
+        return true;
     }
     public void SetOnce() => _setOnce = true;
 }
