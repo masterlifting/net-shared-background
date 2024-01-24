@@ -77,7 +77,9 @@ restart:
             if (taskSchedule.IsStop(out var stoppingReason))
             {
                 _log.Warn($"Task '{_taskName}' has stopped. Reason: {stoppingReason}.");
+                
                 await StopAsync(cToken);
+                
                 return;
             }
 
@@ -101,11 +103,11 @@ restart:
 
             try
             {
-                _log.Trace($"Process of the '{_taskName}' has started.");
+                _log.Trace($"Task '{_taskName}' has started.");
 
-                await StartTask(new(_taskName, _count, taskSettings), cToken);
+                await Start(new(_taskName, _count, taskSettings), cToken);
 
-                _log.Trace($"Process of the '{_taskName}' has been done.");
+                _log.Trace($"Task '{_taskName}' has finished.");
             }
             catch (Exception exception)
             {
@@ -113,7 +115,7 @@ restart:
             }
             finally
             {
-                _log.Trace($"The '{_taskName}' next process will be launched in {taskSettings.Schedule.WorkTime}.");
+                _log.Trace($"The next task '{_taskName}' will be launched in {taskSettings.Schedule.WorkTime}.");
 
                 if (taskSettings.Schedule.IsOnce)
                     taskSchedule.SetOnce();
@@ -131,5 +133,5 @@ restart:
         _log.Warn($"Background service of the '{_taskName}' has been stopped.");
     }
 
-    protected abstract Task StartTask(BackgroundTask task, CancellationToken cToken = default);
+    protected abstract Task Start(BackgroundTask task, CancellationToken cToken = default);
 }

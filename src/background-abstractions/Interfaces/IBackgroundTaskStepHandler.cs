@@ -5,5 +5,5 @@ namespace Net.Shared.Background.Abstractions.Interfaces;
 
 public interface IBackgroundTaskStepHandler<T> where T : class
 {
-    Task<Result<T>> Handle(IPersistentProcessStep step, IEnumerable<T> data, CancellationToken cToken);
+    Task<Result<T>> Handle(string taskName, IPersistentProcessStep step, IEnumerable<T> data, CancellationToken cToken);
 }

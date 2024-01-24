@@ -16,14 +16,14 @@ public sealed class BackgroundTaskScheduler
         DayOfWeek.Sunday
     ];
 
-    private bool _isOnce;
+    private bool _setOnce;
     private readonly BackgroundTaskSchedule _schedule;
 
     public BackgroundTaskScheduler(BackgroundTaskSchedule schedule)
     {
         _schedule = schedule;
 
-        _isOnce = schedule.IsOnce;
+        _setOnce = schedule.IsOnce;
 
         WorkTime = TimeOnly.Parse(schedule.WorkTime).ToTimeSpan();
 
@@ -44,7 +44,6 @@ public sealed class BackgroundTaskScheduler
     public bool IsReady(out string? reason)
     {
         reason = null;
-        var now = DateTime.UtcNow;
 
         if (!_schedule.IsEnable)
         {
@@ -52,9 +51,10 @@ public sealed class BackgroundTaskScheduler
             return false;
         }
 
-        if (!WorkDays.Contains(now.DayOfWeek))
+        // This condition is very important to avoid an infinite loop
+        if(WorkDays.Length == 0)
         {
-            reason = "today is not enabled";
+            reason = "work days is empty";
             return false;
         }
 
@@ -66,6 +66,23 @@ public sealed class BackgroundTaskScheduler
         wakeupPeriod = WorkTime;
 
         var now = DateTime.UtcNow;
+
+        if (!WorkDays.Contains(now.DayOfWeek))
+        {
+            reason = $"day of week {now.DayOfWeek} is not enabled";
+
+            var next = now;
+            
+            do
+            {
+                next = next.AddDays(1);
+            }
+            while (!WorkDays.Contains(next.DayOfWeek));
+
+            wakeupPeriod = next.Subtract(now);
+            
+            return false;
+        }
 
         if (_schedule.DateStart > DateOnly.FromDateTime(now))
         {
@@ -94,8 +111,23 @@ public sealed class BackgroundTaskScheduler
 
         if (_schedule.DateStop < DateOnly.FromDateTime(now))
         {
-            reason = $"date stop is{_schedule.DateStop: yyyy-MM-dd}";
-            return true;
+            if (_schedule.TimeStop.HasValue)
+            {
+                if(_schedule.TimeStop.Value < TimeOnly.FromDateTime(now))
+                {
+                    reason = $"time stop is{_schedule.TimeStop: HH:mm:ss} on {_schedule.DateStop: yyyy-MM-dd}";
+                    return true;
+                }
+                else
+                {
+                    return false;
+                }
+            }
+            else
+            {
+                reason = $"date stop is{_schedule.DateStop: yyyy-MM-dd}";
+                return true;
+            }
         }
 
         if (_schedule.TimeStop < TimeOnly.FromDateTime(now))
@@ -104,7 +136,7 @@ public sealed class BackgroundTaskScheduler
             return true;
         }
 
-        if (_isOnce)
+        if (_setOnce)
         {
             reason = "used once";
             return true;
@@ -112,5 +144,5 @@ public sealed class BackgroundTaskScheduler
 
         return false;
     }
-    public void SetOnce() => _isOnce = true;
+    public void SetOnce() => _setOnce = true;
 }
