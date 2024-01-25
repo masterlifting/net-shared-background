@@ -10,7 +10,7 @@ public abstract class BackgroundService : Microsoft.Extensions.Hosting.Backgroun
 {
     protected BackgroundTaskSettings TaskSettings { get; private set; }
     protected string TaskName { get; }
-    protected int Count { get; private set; }
+    protected int RunCount { get; private set; }
 
 
     private readonly ILogger _log;
@@ -23,15 +23,11 @@ public abstract class BackgroundService : Microsoft.Extensions.Hosting.Backgroun
 
         TaskName = taskName;
 
-        TaskSettings = settingsProvider.Settings.Tasks is null || !settingsProvider.Settings.Tasks.TryGetValue(TaskName, out var backgroundTaskSettings)
-            ? throw new ArgumentException($"Task '{TaskName}' is not found in the settings.")
-            : backgroundTaskSettings;
+        TaskSettings = settingsProvider.Settings.Tasks[TaskName];
 
         settingsProvider.OnChange(x =>
         {
-            TaskSettings = settingsProvider.Settings.Tasks is null || !settingsProvider.Settings.Tasks.TryGetValue(TaskName, out var backgroundTaskSettings)
-                ? throw new ArgumentException($"Task '{TaskName}' is not found in the settings.")
-                : backgroundTaskSettings;
+            TaskSettings = x.Tasks[TaskName];
 
             _isSettingsChanged = true;
         });
@@ -41,6 +37,8 @@ public abstract class BackgroundService : Microsoft.Extensions.Hosting.Backgroun
 
     protected override async Task ExecuteAsync(CancellationToken cToken)
     {
+        await Registrations.BackgroundRegistrationsMap[TaskName].Task;
+
         _log.Warn($"Background process of the '{TaskName}' has started.");
 
 restart:
@@ -55,7 +53,7 @@ restart:
             {
                 _isSettingsChanged = false;
 
-                Count = 0;
+                RunCount = 0;
 
                 _log.Warn($"Configuration of the '{TaskName}' was changed. It will be restarted.");
 
@@ -82,14 +80,14 @@ restart:
                 continue;
             }
 
-            if (Count == int.MaxValue)
+            if (RunCount == int.MaxValue)
             {
-                Count = 0;
+                RunCount = 0;
 
                 _log.Warn($"Counter for the task '{TaskName}' was reset.");
             }
 
-            Count++;
+            RunCount++;
 
             try
             {

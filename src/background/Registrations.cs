@@ -1,15 +1,11 @@
-﻿using System.Collections.Immutable;
-using System.Reflection;
-using System.Text.Json;
+﻿using System.Text.Json;
 
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
 
 using Net.Shared.Background.Abstractions.Interfaces;
 using Net.Shared.Background.Abstractions.Models.Settings;
 using Net.Shared.Background.SettingProviders;
-using Net.Shared.Persistence.Abstractions.Interfaces.Entities;
 
 using static Net.Shared.Extensions.Serialization.Json.JsonExtensions;
 
@@ -17,7 +13,9 @@ namespace Net.Shared.Background;
 
 public static class Registrations
 {
-    public static IServiceCollection AddBackgroundTasks(this IServiceCollection services, Assembly assembly, Action<BackgroundConfiguration>? configure = null)
+    internal static Dictionary<string,TaskCompletionSource> BackgroundRegistrationsMap = new(10);
+    public static IServiceCollection AddBackgroundTask<T>(this IServiceCollection services, string Name, Action<BackgroundConfiguration>? configure = null)
+        where T : BackgroundService
     {
         services
             .AddSingleton(provider =>
@@ -35,7 +33,10 @@ public static class Registrations
                 configuration
                     .GetSection(BackgroundSettings.SectionName)
                     .Bind(settings);
-            });
+            })
+            .ValidateOnStart()
+            .Validate(x => x.Tasks.ContainsKey(Name), $"Task '{Name}' is not configured.")
+            .Validate(x => !string.IsNullOrWhiteSpace(x.Tasks[Name].Steps), $"Steps of the task '{Name}' are not configured.");
 
         var configuration = new BackgroundConfiguration(services);
 
@@ -44,31 +45,11 @@ public static class Registrations
         if (!configuration.IsSetConfigurationProvider)
             services.AddSingleton<IBackgroundSettingsProvider, OptionsMonitorSettingsProvider>();
 
-        var backgroundTaskTypes = assembly.GetTypes()
-            .Where(type => type.IsClass && !type.IsAbstract && IsSubclassOfRawGeneric(typeof(BackgroundTask<>), type))
-            .ToImmutableArray();
+        services.AddHostedService<T>();
 
-        foreach (var backgroundTaskType in backgroundTaskTypes)
-        {
-            services.AddHostedService(serviceProvider => (BackgroundTask<IPersistentProcess>)ActivatorUtilities.CreateInstance(serviceProvider, backgroundTaskType));
-        }
+        BackgroundRegistrationsMap.Add(Name, new TaskCompletionSource());
+        BackgroundRegistrationsMap[Name].SetResult();
 
         return services;
-
-        static bool IsSubclassOfRawGeneric(Type targetGenericType, Type? targetType)
-        {
-            while (targetType is not null && targetType != typeof(object))
-            {
-                var genericType = targetType.IsGenericType
-                    ? targetType.GetGenericTypeDefinition()
-                    : targetType;
-
-                if (genericType == targetGenericType)
-                    return true;
-
-                targetType = targetType.BaseType;
-            }
-            return false;
-        }
     }
 }

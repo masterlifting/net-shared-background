@@ -3,5 +3,5 @@
 public sealed record BackgroundSettings
 {
     public const string SectionName = "Background";
-    public Dictionary<string, BackgroundTaskSettings>? Tasks { get; init; }
+    public Dictionary<string, BackgroundTaskSettings> Tasks { get; init; } = [];
 }

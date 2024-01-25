@@ -134,7 +134,7 @@ public abstract class BackgroundTask<T>(
 
         var stepNames = steps.ToDictionary(x => x.Name);
 
-        foreach (var stepName in TaskSettings.Steps)
+        foreach (var stepName in TaskSettings.Steps.Split(',').Select(x => x.Trim()))
         {
             if (stepNames.TryGetValue(stepName, out var step))
                 result.Enqueue(step);
@@ -154,7 +154,7 @@ public abstract class BackgroundTask<T>(
 
         _log.Trace($"Getting processable data for the '{TaskName}' by step '{step.Name}' has finished. Items count: {processableData.Length}.");
 
-        if (TaskSettings.RetryPolicy is not null && Count % TaskSettings.RetryPolicy.EveryTime == 0)
+        if (TaskSettings.RetryPolicy is not null && RunCount % TaskSettings.RetryPolicy.EveryTime == 0)
         {
             _log.Trace($"Getting unprocessable data for the '{TaskName}' by step '{step.Name}' has started.");
 
