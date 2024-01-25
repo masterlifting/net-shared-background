@@ -1,6 +1,4 @@
-﻿using System.Collections.Concurrent;
-
-using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.Logging;
 
 using Net.Shared.Background.Abstractions.Interfaces;
 using Net.Shared.Extensions.Logging;
@@ -12,15 +10,15 @@ using static Net.Shared.Persistence.Abstractions.Constants.Enums;
 namespace Net.Shared.Background;
 
 public abstract class BackgroundTask<T>(
-    string taskName, 
-    IBackgroundSettingsProvider settingsProvider, 
+    string taskName,
+    IBackgroundSettingsProvider settingsProvider,
     ILogger logger
     ) : BackgroundService(taskName, settingsProvider, logger)
     where T : class, IPersistentProcess
 {
     private readonly ILogger _log = logger;
-    
-    private readonly SemaphoreSlim _semaphore = new(1);
+
+    private static readonly SemaphoreSlim Semaphore = new(1);
 
     protected override async Task Run(CancellationToken cToken)
     {
@@ -28,14 +26,7 @@ public abstract class BackgroundTask<T>(
 
         var handler = GetStepHandler();
 
-        _log.Trace($"Steps handling of the '{TaskName}' has started.");
-
-        if (TaskSettings.IsParallel)
-            await HandleStepsParallel(new ConcurrentQueue<IPersistentProcessStep>(steps), handler, cToken);
-        else
-            await HandleSteps(steps, handler, cToken);
-
-        _log.Trace($"Steps handling of the '{TaskName}' has finished.");
+        await HandleSteps(steps, handler, cToken);
     }
 
     #region ABSTRACT FUNCTIONS
@@ -49,6 +40,8 @@ public abstract class BackgroundTask<T>(
     #region PRIVATE FUNCTIONS
     private async Task HandleSteps(Queue<IPersistentProcessStep> steps, IBackgroundTaskStepHandler<T> handler, CancellationToken cToken)
     {
+        _log.Trace($"Steps handling of the '{TaskName}' has started.");
+
         for (var i = 0; i <= steps.Count; i++)
         {
             var currentStep = steps.Dequeue();
@@ -61,7 +54,8 @@ public abstract class BackgroundTask<T>(
 
             try
             {
-                await _semaphore.WaitAsync(cToken);
+                await Semaphore.WaitAsync(cToken);
+
                 var data = await GetData(currentStep, cToken);
 
                 if (data.Length == 0)
@@ -79,54 +73,11 @@ public abstract class BackgroundTask<T>(
             }
             finally
             {
-                _semaphore.Release();
+                Semaphore.Release();
             }
         }
-    }
-    private Task HandleStepsParallel(ConcurrentQueue<IPersistentProcessStep> steps, IBackgroundTaskStepHandler<T> handler, CancellationToken cToken)
-    {
-        var tasks = Enumerable.Range(0, steps.Count).Select(async _ =>
-        {
-            var isDequeue = steps.TryDequeue(out var currentStep);
 
-            if (!isDequeue)
-            {
-                _log.Warn($"No steps to process for the '{TaskName}'.");
-                return;
-            }
-
-            try
-            {
-                await _semaphore.WaitAsync(cToken);
-
-                var data = await GetData(currentStep!, cToken);
-
-                if (data.Length == 0)
-                    return;
-
-                data = await HandleStep(currentStep!, handler, data, cToken);
-
-                steps.TryPeek(out var nextStep);
-
-                await SaveResult(currentStep!, nextStep, data, cToken);
-            }
-            catch
-            {
-                throw;
-            }
-            finally
-            {
-                _semaphore.Release();
-            }
-        });
-
-        return Task.WhenAll(tasks).ContinueWith(task =>
-        {
-            if (task.IsFaulted)
-            {
-                _log.ErrorFull(task.Exception);
-            }
-        }, cToken);
+        _log.Trace($"Steps handling of the '{TaskName}' has finished.");
     }
 
     private async Task<Queue<IPersistentProcessStep>> GetStepsQueue(CancellationToken cToken)
