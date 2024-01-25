@@ -55,8 +55,8 @@ public abstract class BackgroundTask<T>(
             try
             {
                 await Semaphore.WaitAsync(cToken);
-
                 var data = await GetData(currentStep, cToken);
+                Semaphore.Release();
 
                 if (data.Length == 0)
                     continue;
@@ -65,14 +65,13 @@ public abstract class BackgroundTask<T>(
 
                 steps.TryPeek(out var nextStep);
 
+                await Semaphore.WaitAsync(cToken);
                 await SaveResult(currentStep, nextStep, data, cToken);
+                Semaphore.Release();
             }
             catch (Exception exception)
             {
                 _log.ErrorFull(exception);
-            }
-            finally
-            {
                 Semaphore.Release();
             }
         }
