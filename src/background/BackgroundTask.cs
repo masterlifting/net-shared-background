@@ -61,6 +61,7 @@ public abstract class BackgroundTask<T>(
 
             try
             {
+                await _semaphore.WaitAsync(cToken);
                 var data = await GetData(currentStep, cToken);
 
                 if (data.Length == 0)
@@ -74,7 +75,11 @@ public abstract class BackgroundTask<T>(
             }
             catch (Exception exception)
             {
-                _log.ErrorCompact(exception);
+                _log.ErrorFull(exception);
+            }
+            finally
+            {
+                _semaphore.Release();
             }
         }
     }
@@ -119,7 +124,7 @@ public abstract class BackgroundTask<T>(
         {
             if (task.IsFaulted)
             {
-                _log.ErrorCompact(task.Exception);
+                _log.ErrorFull(task.Exception);
             }
         }, cToken);
     }
