@@ -18,8 +18,6 @@ public abstract class BackgroundTask<T>(
 {
     private readonly ILogger _log = logger;
 
-    private static readonly SemaphoreSlim Semaphore = new(1);
-
     protected override async Task Run(CancellationToken cToken)
     {
         var steps = await GetStepsQueue(cToken);
@@ -52,28 +50,16 @@ public abstract class BackgroundTask<T>(
                 return;
             }
 
-            try
-            {
-                await Semaphore.WaitAsync(cToken);
-                var data = await GetData(currentStep, cToken);
-                Semaphore.Release();
+            var data = await GetData(currentStep, cToken);
 
-                if (data.Length == 0)
-                    continue;
+            if (data.Length == 0)
+                continue;
 
-                data = await HandleStep(currentStep, handler, data, cToken);
+            data = await HandleStep(currentStep, handler, data, cToken);
 
-                steps.TryPeek(out var nextStep);
+            steps.TryPeek(out var nextStep);
 
-                await Semaphore.WaitAsync(cToken);
-                await SaveResult(currentStep, nextStep, data, cToken);
-                Semaphore.Release();
-            }
-            catch (Exception exception)
-            {
-                _log.ErrorFull(exception);
-                Semaphore.Release();
-            }
+            await SaveResult(currentStep, nextStep, data, cToken);
         }
 
         _log.Trace($"Steps handling of the '{TaskName}' has finished.");
@@ -81,7 +67,7 @@ public abstract class BackgroundTask<T>(
 
     private async Task<Queue<IPersistentProcessStep>> GetStepsQueue(CancellationToken cToken)
     {
-        _log.Trace($"Getting steps for the '{TaskName}' has started.");
+        _log.Trace($"Getting the steps for the '{TaskName}' has started.");
 
         var steps = await GetSteps(cToken);
 
@@ -97,7 +83,7 @@ public abstract class BackgroundTask<T>(
                 throw new InvalidOperationException($"The step '{stepName}' was not found in the database.");
         }
 
-        _log.Trace($"Getting steps for the '{TaskName}' has finished. Steps count: {result.Count}.");
+        _log.Debug($"Getting the steps for the '{TaskName}' has finished. Steps count: {result.Count}.");
 
         return result;
     }
@@ -105,9 +91,19 @@ public abstract class BackgroundTask<T>(
     {
         _log.Trace($"Getting processable data for the '{TaskName}' by step '{step.Name}' has started.");
 
-        var processableData = await GetProcessableData(step, TaskSettings.ChunkSize, cToken);
+        T[] processableData;
 
-        _log.Trace($"Getting processable data for the '{TaskName}' by step '{step.Name}' has finished. Items count: {processableData.Length}.");
+        try
+        {
+            processableData = await GetProcessableData(step, TaskSettings.ChunkSize, cToken);
+        }
+        catch (Exception exception)
+        {
+            _log.ErrorShort(exception);
+            return [];
+        }
+
+        _log.Debug($"Getting processable data for the '{TaskName}' by step '{step.Name}' has finished. Items count: {processableData.Length}.");
 
         if (TaskSettings.RetryPolicy is not null && RunCount % TaskSettings.RetryPolicy.EveryTime == 0)
         {
@@ -116,22 +112,32 @@ public abstract class BackgroundTask<T>(
             var retryTime = TimeOnly.Parse(TaskSettings.Schedule.WorkTime).ToTimeSpan() * TaskSettings.RetryPolicy.EveryTime;
             var retryDate = DateTime.UtcNow.Add(-retryTime);
 
-            var unprocessableResult = await GetUnprocessedData(step, TaskSettings.ChunkSize, retryDate, TaskSettings.RetryPolicy.MaxAttempts, cToken);
+            T[] unprocessableData;
 
-            _log.Trace($"Getting unprocessable data for the '{TaskName}' by step '{step.Name}' has finished. Items count: {processableData.Length}.");
+            try
+            {
+                unprocessableData = await GetUnprocessedData(step, TaskSettings.ChunkSize, retryDate, TaskSettings.RetryPolicy.MaxAttempts, cToken);
+            }
+            catch (Exception exception)
+            {
+                _log.ErrorShort(exception);
+                return processableData;
+            }
 
-            if (unprocessableResult.Length != 0)
-                processableData = [.. processableData, .. unprocessableResult];
+            _log.Debug($"Getting unprocessable data for the '{TaskName}' by step '{step.Name}' has finished. Items count: {unprocessableData.Length}.");
+
+            if (unprocessableData.Length != 0)
+                processableData = [.. processableData, .. unprocessableData];
         }
 
         return processableData;
     }
     private async Task<T[]> HandleStep(IPersistentProcessStep step, IBackgroundTaskStepHandler<T> handler, T[] data, CancellationToken cToken)
     {
+        _log.Trace($"Handling step '{step.Name}' for the '{TaskName}' has started.");
+
         try
         {
-            _log.Trace($"Handling step '{step.Name}' for the '{TaskName}' has started.");
-
             var result = await handler.Handle(TaskName, step, data, cToken);
 
             if (result.Errors.Length != 0)
@@ -140,7 +146,7 @@ public abstract class BackgroundTask<T>(
             foreach (var item in result.Data.Where(x => x.StatusId != (int)ProcessStatuses.Error))
                 item.StatusId = (int)ProcessStatuses.Processed;
 
-            _log.Trace($"Handling step '{step.Name}' for the '{TaskName}' has finished. Items count: {result.Data.Length}.");
+            _log.Debug($"Handling step '{step.Name}' for the '{TaskName}' has finished. Items count: {result.Data.Length}.");
 
             return result.Data;
         }
@@ -152,9 +158,7 @@ public abstract class BackgroundTask<T>(
                 data[i].Error = exception.Message;
             }
 
-            var error = $"Handling step '{step.Name}' for the '{TaskName}' has failed. Reason: {exception.Message}";
-
-            _log.ErrorShort(new InvalidOperationException(error));
+            _log.Error($"Handling step '{step.Name}' for the '{TaskName}' has failed. Reason: {exception.Message}");
 
             return data;
         }
@@ -176,7 +180,7 @@ public abstract class BackgroundTask<T>(
         if (nextStep is not null)
             saveResultMessage += $" Next step is '{nextStep.Name}'";
 
-        _log.Trace(saveResultMessage);
+        _log.Debug(saveResultMessage);
 
         var processedCount = data.Length;
         var unprocessedCount = 0;
@@ -190,7 +194,7 @@ public abstract class BackgroundTask<T>(
             }
         }
 
-        _log.Debug($"Task '{TaskName}' with step '{currentStep.Name}' has been done. Processed: {processedCount} ; Unprocessed: {unprocessedCount}.");
+        _log.Info($"Task '{TaskName}' with step '{currentStep.Name}' has been done. Processed: {processedCount} ; Unprocessed: {unprocessedCount}.");
     }
     #endregion
 }

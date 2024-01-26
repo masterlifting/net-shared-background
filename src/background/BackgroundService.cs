@@ -95,7 +95,7 @@ restart:
 
                 await Run(cToken);
 
-                _log.Trace($"Task '{TaskName}' has finished.");
+                _log.Debug($"Task '{TaskName}' has finished.");
             }
             catch (Exception exception)
             {
