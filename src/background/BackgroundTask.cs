@@ -55,7 +55,7 @@ public abstract class BackgroundTask<T>(
             if (data.Length == 0)
                 continue;
 
-            data = await HandleStep(currentStep, handler, data, cToken);
+            await HandleStep(currentStep, handler, data, cToken);
 
             steps.TryPeek(out var nextStep);
 
@@ -132,7 +132,7 @@ public abstract class BackgroundTask<T>(
 
         return processableData;
     }
-    private async Task<T[]> HandleStep(IPersistentProcessStep step, IBackgroundTaskStepHandler<T> handler, T[] data, CancellationToken cToken)
+    private async Task HandleStep(IPersistentProcessStep step, IBackgroundTaskStepHandler<T> handler, T[] data, CancellationToken cToken)
     {
         _log.Trace($"Handling step '{step.Name}' for the '{TaskName}' has started.");
 
@@ -147,8 +147,6 @@ public abstract class BackgroundTask<T>(
                 item.StatusId = (int)ProcessStatuses.Processed;
 
             _log.Debug($"Handling step '{step.Name}' for the '{TaskName}' has finished. Items count: {result.Data.Length}.");
-
-            return result.Data;
         }
         catch (Exception exception)
         {
@@ -159,8 +157,6 @@ public abstract class BackgroundTask<T>(
             }
 
             _log.Error($"Handling step '{step.Name}' for the '{TaskName}' has failed. Reason: {exception.Message}");
-
-            return data;
         }
     }
     private async Task SaveResult(IPersistentProcessStep currentStep, IPersistentProcessStep? nextStep, T[] data, CancellationToken cToken)
