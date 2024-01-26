@@ -71,11 +71,13 @@ public abstract class BackgroundTask<T>(
 
         var steps = await GetSteps(cToken);
 
-        var result = new Queue<IPersistentProcessStep>(TaskSettings.Steps.Length);
+        var taskSettingsSteps = TaskSettings.Steps.Split(',').Select(x => x.Trim()).ToArray();
+
+        var result = new Queue<IPersistentProcessStep>(taskSettingsSteps.Length);
 
         var stepNames = steps.ToDictionary(x => x.Name);
 
-        foreach (var stepName in TaskSettings.Steps.Split(',').Select(x => x.Trim()))
+        foreach (var stepName in taskSettingsSteps)
         {
             if (stepNames.TryGetValue(stepName, out var step))
                 result.Enqueue(step);

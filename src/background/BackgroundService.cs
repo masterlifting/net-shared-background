@@ -39,7 +39,7 @@ public abstract class BackgroundService : Microsoft.Extensions.Hosting.Backgroun
     {
         await Registrations.BackgroundRegistrationsMap[TaskName].Task;
 
-        _log.Warn($"Background process of the '{TaskName}' has started.");
+        _log.Info($"Background process of the '{TaskName}' has started.");
 
 restart:
 
@@ -71,11 +71,9 @@ restart:
 
             if (!taskScheduler.ReadyToStart(out reason, out var waitingPeriod))
             {
-                _log.Warn($"Task '{TaskName}' is not ready to start. Reason: {reason}.");
-
                 timer = new PeriodicTimer(waitingPeriod);
 
-                _log.Warn($"Next time the task '{TaskName}' will be launched in {waitingPeriod:dd\\.hh\\:mm\\:ss}.");
+                _log.Warn($"Task '{TaskName}' is not ready to start. Reason: {reason}. Next time the task '{TaskName}' will be launched in {waitingPeriod:dd\\.hh\\:mm\\:ss}.");
 
                 continue;
             }
@@ -119,6 +117,6 @@ restart:
     {
         await base.StopAsync(cToken);
 
-        _log.Warn($"Background service of the '{TaskName}' has been stopped.");
+        _log.Info($"Background service of the '{TaskName}' has been stopped.");
     }
 }
