@@ -5,28 +5,28 @@ using Microsoft.Extensions.Logging;
 
 using Net.Shared.Background.Abstractions.Interfaces;
 using Net.Shared.Extensions.Logging;
-using Net.Shared.Persistence.Abstractions.Interfaces.Contexts;
 using Net.Shared.Persistence.Abstractions.Interfaces.Entities;
 using Net.Shared.Persistence.Abstractions.Interfaces.Entities.Catalogs;
+using Net.Shared.Persistence.Abstractions.Interfaces.Repositories;
+using Net.Shared.Persistence.Abstractions.Models.Contexts;
 
 using static Net.Shared.Persistence.Abstractions.Constants.Enums;
 
 namespace Net.Shared.Background;
 
-public abstract class BackgroundTask<TStepHandler, TData, TDataStep, TPersistenceProcessContext>(
+public abstract class BackgroundTask<TData, TDataStep, TBackgroundStepHandler>(
     string taskName,
     Guid correlationId,
     ILogger logger,
     IServiceScopeFactory serviceScopeFactory,
     IBackgroundSettingsProvider settingsProvider
     ) : BackgroundService(taskName, settingsProvider, logger)
-    where TData : class, IPersistentProcess
-    where TDataStep : class, IPersistentProcessStep
-    where TStepHandler : class, IBackgroundTaskStepHandler<TData>
-    where TPersistenceProcessContext : class, IPersistenceProcessContext
+        where TData : class, IPersistentProcess
+        where TDataStep : class, IPersistentProcessStep
+        where TBackgroundStepHandler : class, IBackgroundTaskStepHandler<TData>
 {
     private readonly Guid _correlationId = correlationId;
-    private readonly TStepHandler _handler = Activator.CreateInstance<TStepHandler>();
+    private readonly TBackgroundStepHandler _handler = Activator.CreateInstance<TBackgroundStepHandler>();
 
     private readonly ILogger _log = logger;
     private readonly IServiceScopeFactory _serviceScopeFactory = serviceScopeFactory;
@@ -35,20 +35,26 @@ public abstract class BackgroundTask<TStepHandler, TData, TDataStep, TPersistenc
     {
         await using var scope = _serviceScopeFactory.CreateAsyncScope();
 
-        var processContext = scope.ServiceProvider.GetRequiredService<TPersistenceProcessContext>();
+        var processRepository = scope.ServiceProvider.GetRequiredService<IPersistenceProcessRepository<TData>>();
+        var stepsRepository = scope.ServiceProvider.GetRequiredService<IPersistenceReaderRepository<TDataStep>>();
 
-        var steps = await GetStepsQueue(processContext, cToken);
+        var steps = await GetStepsQueue(stepsRepository, cToken);
 
-        await HandleSteps(scope.ServiceProvider, processContext, steps, cToken);
+        await HandleSteps(scope.ServiceProvider, stepsRepository, processRepository, steps, cToken);
     }
 
     protected virtual Expression<Func<TData, bool>> DataFilter => x => true;
 
-    private async Task<Queue<IPersistentProcessStep>> GetStepsQueue(IPersistenceProcessContext processContext, CancellationToken cToken)
+    private async Task<Queue<IPersistentProcessStep>> GetStepsQueue(IPersistenceReaderRepository<TDataStep> repository, CancellationToken cToken)
     {
         _log.Trace($"Getting the steps for the '{TaskName}' has started.");
 
-        var steps = await processContext.GetProcessSteps<TDataStep>(cToken);
+        var options = new PersistenceQueryOptions<TDataStep>
+        {
+            Filter = x => true
+        };
+
+        var steps = await repository.FindMany(options, cToken);
 
         var taskSettingsSteps = TaskSettings.Steps.Split(',').Select(x => x.Trim()).ToArray();
 
@@ -92,7 +98,7 @@ public abstract class BackgroundTask<TStepHandler, TData, TDataStep, TPersistenc
             _log.Error($"Handling step '{step.Name}' for the '{TaskName}' has failed. Reason: {exception.Message}");
         }
     }
-    private async Task HandleSteps(IServiceProvider serviceProvider, IPersistenceProcessContext processContext, Queue<IPersistentProcessStep> steps, CancellationToken cToken)
+    private async Task HandleSteps(IServiceProvider serviceProvider, IPersistenceReaderRepository<TDataStep> stepsRepository, IPersistenceProcessRepository<TData> processRepository, Queue<IPersistentProcessStep> steps, CancellationToken cToken)
     {
         _log.Trace($"Steps handling of the '{TaskName}' has started.");
 
@@ -106,7 +112,7 @@ public abstract class BackgroundTask<TStepHandler, TData, TDataStep, TPersistenc
                 return;
             }
 
-            var data = await GetData(processContext, currentStep, cToken);
+            var data = await GetData(processRepository, currentStep, cToken);
 
             if (data.Length == 0)
                 continue;
@@ -115,12 +121,12 @@ public abstract class BackgroundTask<TStepHandler, TData, TDataStep, TPersistenc
 
             steps.TryPeek(out var nextStep);
 
-            await SaveResult(processContext, currentStep, nextStep, data, cToken);
+            await SaveResult(stepsRepository, processRepository, currentStep, nextStep, data, cToken);
         }
 
         _log.Trace($"Steps handling of the '{TaskName}' has finished.");
     }
-    private async Task<TData[]> GetData(IPersistenceProcessContext processContext, IPersistentProcessStep step, CancellationToken cToken)
+    private async Task<TData[]> GetData(IPersistenceProcessRepository<TData> repository, IPersistentProcessStep step, CancellationToken cToken)
     {
         _log.Trace($"Getting processable data for the '{TaskName}' by step '{step.Name}' has started.");
 
@@ -128,7 +134,7 @@ public abstract class BackgroundTask<TStepHandler, TData, TDataStep, TPersistenc
 
         try
         {
-            processableData = await processContext.GetProcessableData(_correlationId, step, TaskSettings.ChunkSize, DataFilter, cToken);
+            processableData = await repository.GetProcessableData(_correlationId, step, TaskSettings.ChunkSize, DataFilter, cToken);
         }
         catch (Exception exception)
         {
@@ -149,7 +155,7 @@ public abstract class BackgroundTask<TStepHandler, TData, TDataStep, TPersistenc
 
             try
             {
-                unprocessableData = await processContext.GetUnprocessedData(_correlationId, step, TaskSettings.ChunkSize, retryDate, TaskSettings.RetryPolicy.MaxAttempts, DataFilter, cToken);
+                unprocessableData = await repository.GetUnprocessedData(_correlationId, step, TaskSettings.ChunkSize, retryDate, TaskSettings.RetryPolicy.MaxAttempts, DataFilter, cToken);
             }
             catch (Exception exception)
             {
@@ -165,17 +171,17 @@ public abstract class BackgroundTask<TStepHandler, TData, TDataStep, TPersistenc
 
         return processableData;
     }
-    private async Task SaveResult(IPersistenceProcessContext processContext, IPersistentProcessStep currentStep, IPersistentProcessStep? nextStep, TData[] data, CancellationToken cToken)
+    private async Task SaveResult(IPersistenceReaderRepository<TDataStep> stepsRepository, IPersistenceProcessRepository<TData> processRepository, IPersistentProcessStep currentStep, IPersistentProcessStep? nextStep, TData[] data, CancellationToken cToken)
     {
         _log.Trace($"Saving data for the '{TaskName}' by step '{currentStep.Name}' has started.");
 
         if (TaskSettings.IsInfinite && nextStep is null)
         {
-            var steps = await GetStepsQueue(processContext, cToken);
+            var steps = await GetStepsQueue(stepsRepository, cToken);
             nextStep = steps.Peek();
         }
 
-        await processContext.SetProcessedData(_correlationId, currentStep, nextStep, data, cToken);
+        await processRepository.SetProcessedData(_correlationId, currentStep, nextStep, data, cToken);
 
         var saveResultMessage = $"Saving data for the '{TaskName}' by step '{currentStep.Name}' has finished. Items count: {data.Length}.";
 

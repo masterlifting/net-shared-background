@@ -14,7 +14,7 @@ namespace Net.Shared.Background;
 public static class Registrations
 {
     internal static Dictionary<string,TaskCompletionSource> BackgroundRegistrationsMap = new(10);
-    public static IServiceCollection AddBackgroundTask<T>(this IServiceCollection services, string Name, Action<BackgroundConfiguration>? configure = null)
+    public static IServiceCollection AddBackgroundTask<T>(this IServiceCollection services, string Name, Action<BackgroundConfiguration> configure)
         where T : BackgroundService
     {
         services
@@ -40,7 +40,13 @@ public static class Registrations
 
         var configuration = new BackgroundConfiguration(services);
 
-        configure?.Invoke(configuration);
+        configure.Invoke(configuration);
+
+        if (!configuration.IsSetStepsReaderRepository)
+            throw new InvalidOperationException($"Steps reader repository is not configured for the task '{Name}'.");
+
+        if (!configuration.IsSetProcessRepository)
+            throw new InvalidOperationException($"Process repository is not configured for the task '{Name}'.");
 
         if (!configuration.IsSetConfigurationProvider)
             services.AddSingleton<IBackgroundSettingsProvider, OptionsMonitorSettingsProvider>();
