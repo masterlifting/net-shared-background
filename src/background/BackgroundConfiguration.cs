@@ -23,13 +23,13 @@ public sealed class BackgroundConfiguration(IServiceCollection services)
 
     public void AddStepsReaderRepository<T, TRepo>() where T : class, IPersistentProcessStep where TRepo : class, IPersistenceReaderRepository<T>
     {
-        Services.AddTransient<IPersistenceReaderRepository<T>, TRepo>();
+        Services.AddScoped<IPersistenceReaderRepository<T>, TRepo>();
         IsSetStepsReaderRepository = true;
     }
     
     public void AddProcessRepository<T, TRepo>() where T : class, IPersistentProcess where TRepo : class, IPersistenceProcessRepository<T>
     {
-        Services.AddTransient<IPersistenceProcessRepository<T>, TRepo>();
+        Services.AddScoped<IPersistenceProcessRepository<T>, TRepo>();
         IsSetProcessRepository = true;
     }
 }
