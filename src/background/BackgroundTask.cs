@@ -8,7 +8,6 @@ using Net.Shared.Extensions.Logging;
 using Net.Shared.Persistence.Abstractions.Interfaces.Entities;
 using Net.Shared.Persistence.Abstractions.Interfaces.Entities.Catalogs;
 using Net.Shared.Persistence.Abstractions.Interfaces.Repositories;
-using Net.Shared.Persistence.Abstractions.Models.Contexts;
 
 using static Net.Shared.Persistence.Abstractions.Constants.Enums;
 
@@ -45,16 +44,13 @@ public abstract class BackgroundTask<TData, TDataStep, TBackgroundStepHandler>(
 
     protected virtual Expression<Func<TData, bool>> DataFilter => x => true;
 
-    private async Task<Queue<IPersistentProcessStep>> GetStepsQueue(IPersistenceReaderRepository<TDataStep> repository, CancellationToken cToken)
+    private async Task<Queue<IPersistentProcessStep>> GetStepsQueue(
+        IPersistenceReaderRepository<TDataStep> repository,
+        CancellationToken cToken)
     {
         _log.Trace($"Getting the steps for the '{TaskName}' has started.");
 
-        var options = new PersistenceQueryOptions<TDataStep>
-        {
-            Filter = x => true
-        };
-
-        var steps = await repository.FindMany(options, cToken);
+        var steps = await repository.FindMany<TDataStep>(new(), cToken);
 
         var taskSettingsSteps = TaskSettings.Steps.Split(',').Select(x => x.Trim()).ToArray();
 
@@ -74,7 +70,11 @@ public abstract class BackgroundTask<TData, TDataStep, TBackgroundStepHandler>(
 
         return result;
     }
-    private async Task HandleStep(IServiceProvider serviceProvider, IPersistentProcessStep step, TData[] data, CancellationToken cToken)
+    private async Task HandleStep(
+        IServiceProvider serviceProvider,
+        IPersistentProcessStep step,
+        TData[] data,
+        CancellationToken cToken)
     {
         _log.Trace($"Handling step '{step.Name}' for the '{TaskName}' has started.");
 
@@ -89,16 +89,21 @@ public abstract class BackgroundTask<TData, TDataStep, TBackgroundStepHandler>(
         }
         catch (Exception exception)
         {
+            _log.Error($"Handling step '{step.Name}' for the '{TaskName}' has failed. Reason: {exception.Message}.");
+
             for (var i = 0; i < data.Length; i++)
             {
                 data[i].StatusId = (int)ProcessStatuses.Error;
                 data[i].Error = exception.Message;
             }
-
-            _log.Error($"Handling step '{step.Name}' for the '{TaskName}' has failed. Reason: {exception.Message}");
         }
     }
-    private async Task HandleSteps(IServiceProvider serviceProvider, IPersistenceReaderRepository<TDataStep> stepsRepository, IPersistenceProcessRepository<TData> processRepository, Queue<IPersistentProcessStep> steps, CancellationToken cToken)
+    private async Task HandleSteps(
+        IServiceProvider serviceProvider,
+        IPersistenceReaderRepository<TDataStep> stepsRepository,
+        IPersistenceProcessRepository<TData> processRepository,
+        Queue<IPersistentProcessStep> steps,
+        CancellationToken cToken)
     {
         _log.Trace($"Steps handling of the '{TaskName}' has started.");
 
@@ -126,7 +131,10 @@ public abstract class BackgroundTask<TData, TDataStep, TBackgroundStepHandler>(
 
         _log.Trace($"Steps handling of the '{TaskName}' has finished.");
     }
-    private async Task<TData[]> GetData(IPersistenceProcessRepository<TData> repository, IPersistentProcessStep step, CancellationToken cToken)
+    private async Task<TData[]> GetData(
+        IPersistenceProcessRepository<TData> repository,
+        IPersistentProcessStep step,
+        CancellationToken cToken)
     {
         _log.Trace($"Getting processable data for the '{TaskName}' by step '{step.Name}' has started.");
 
@@ -171,7 +179,13 @@ public abstract class BackgroundTask<TData, TDataStep, TBackgroundStepHandler>(
 
         return processableData;
     }
-    private async Task SaveResult(IPersistenceReaderRepository<TDataStep> stepsRepository, IPersistenceProcessRepository<TData> processRepository, IPersistentProcessStep currentStep, IPersistentProcessStep? nextStep, TData[] data, CancellationToken cToken)
+    private async Task SaveResult(
+        IPersistenceReaderRepository<TDataStep> stepsRepository,
+        IPersistenceProcessRepository<TData> processRepository,
+        IPersistentProcessStep currentStep,
+        IPersistentProcessStep? nextStep,
+        TData[] data,
+        CancellationToken cToken)
     {
         _log.Trace($"Saving data for the '{TaskName}' by step '{currentStep.Name}' has started.");
 

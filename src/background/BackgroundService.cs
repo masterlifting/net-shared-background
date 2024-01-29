@@ -37,7 +37,7 @@ public abstract class BackgroundService : Microsoft.Extensions.Hosting.Backgroun
 
     protected override async Task ExecuteAsync(CancellationToken cToken)
     {
-        await Registrations.BackgroundRegistrationsMap[TaskName].Task;
+        await Registrations.BackgroundTaskRegistrationsMap[TaskName].Task;
 
         _log.Info($"Background process of the '{TaskName}' has started.");
 
