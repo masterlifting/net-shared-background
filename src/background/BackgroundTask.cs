@@ -89,7 +89,7 @@ public abstract class BackgroundTask<TData, TDataStep, TBackgroundStepHandler>(
         }
         catch (Exception exception)
         {
-            _log.Error($"Handling step '{step.Name}' for the '{TaskName}' has failed. Reason: {exception.Message}.");
+            _log.Error($"Handling step '{step.Name}' for the '{TaskName}' has failed. Reason: {exception.Message}");
 
             for (var i = 0; i < data.Length; i++)
             {
