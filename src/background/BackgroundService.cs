@@ -8,12 +8,10 @@ namespace Net.Shared.Background;
 
 public abstract class BackgroundService : Microsoft.Extensions.Hosting.BackgroundService
 {
+    private readonly ILogger _log;
     protected BackgroundTaskSettings TaskSettings { get; private set; }
     protected string TaskName { get; }
     protected int RunCount { get; private set; }
-
-
-    private readonly ILogger _log;
 
     private bool _isSettingsChanged;
 
@@ -22,7 +20,6 @@ public abstract class BackgroundService : Microsoft.Extensions.Hosting.Backgroun
         _log = logger;
 
         TaskName = taskName;
-
         TaskSettings = settingsProvider.Settings.Tasks[TaskName];
 
         settingsProvider.OnChange(x =>
@@ -37,8 +34,6 @@ public abstract class BackgroundService : Microsoft.Extensions.Hosting.Backgroun
 
     protected override async Task ExecuteAsync(CancellationToken cToken)
     {
-        await Registrations.BackgroundTaskRegistrationsMap[TaskName].Task;
-
         _log.Info($"Background process of the '{TaskName}' has started.");
 
 restart:
@@ -62,7 +57,7 @@ restart:
 
             if (taskScheduler.IsStopped(out var reason))
             {
-                _log.Warn($"Task '{TaskName}' has stopped. Reason: {reason}.");
+                _log.Warn($"Task '{TaskName}' has been stopped. Reason: {reason}.");
 
                 await StopAsync(cToken);
 
@@ -97,7 +92,7 @@ restart:
             }
             catch (Exception exception)
             {
-                _log.ErrorFull(exception);
+                _log.ErrorCompact(exception);
             }
             finally
             {
@@ -117,6 +112,6 @@ restart:
     {
         await base.StopAsync(cToken);
 
-        _log.Info($"Background service of the '{TaskName}' has been stopped.");
+        _log.Warn($"Background service of the '{TaskName}' has been stopped.");
     }
 }

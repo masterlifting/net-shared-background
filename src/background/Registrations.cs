@@ -13,16 +13,14 @@ namespace Net.Shared.Background;
 
 public static class Registrations
 {
-    internal static Dictionary<string, TaskCompletionSource> BackgroundTaskRegistrationsMap = new(100);
-
     public static IServiceCollection AddBackgroundTasks(this IServiceCollection services, Action<BackgroundConfiguration> configure)
     {
         var configuration = new BackgroundConfiguration(services);
+        
+        configure.Invoke(configuration);
 
         if (configuration.Tasks.Count == 0)
             throw new InvalidOperationException("No tasks are configured.");
-
-        configure.Invoke(configuration);
 
         services
             .AddSingleton(provider =>
@@ -42,26 +40,16 @@ public static class Registrations
                     .Bind(settings);
             })
             .ValidateOnStart()
-            .Validate(x =>
-                x.Tasks.Keys.All(BackgroundTaskRegistrationsMap.Keys.Contains),
-                $"Some of the tasks are not configured: {string.Join(", ", BackgroundTaskRegistrationsMap.Keys)}.")
-            .Validate(x =>
-            {
-                foreach (var task in x.Tasks.Join(BackgroundTaskRegistrationsMap, x => x.Key, y => y.Key, (x, _) => x))
-                {
-                    if (string.IsNullOrWhiteSpace(task.Value.Steps))
-                        return false;
-                }
+            .Validate(x => configuration.Tasks.Intersect(x.Tasks.Keys).Count() == configuration.Tasks.Count,
+                "Some of the registered tasks are not configured")
+            .Validate(x => !x.Tasks.Any(x => string.IsNullOrWhiteSpace(x.Value.Steps)),
+                "Some of the registered tasks are not configured: steps are not set.");
 
-                return true;
-            }, "Some of the tasks are not configured: steps are not set.");
-
-
-        if (!configuration.IsSetStepsReaderRepository)
-            throw new InvalidOperationException($"Steps reader repository is not configured for the tasks '{string.Join(", ", BackgroundTaskRegistrationsMap.Keys)}'.");
+        if (!configuration.IsSetProcessStepsRepository)
+            throw new InvalidOperationException("Process Steps repository is not configured for the background tasks.");
 
         if (!configuration.IsSetProcessRepository)
-            throw new InvalidOperationException($"Process repository is not configured for the tasks '{string.Join(", ", BackgroundTaskRegistrationsMap.Keys)}'.");
+            throw new InvalidOperationException("Process repository is not configured for the background tasks.");
 
         if (!configuration.IsSetConfigurationProvider)
             services.AddSingleton<IBackgroundSettingsProvider, OptionsMonitorSettingsProvider>();

@@ -11,9 +11,9 @@ public sealed class BackgroundConfiguration(IServiceCollection services)
 {
     private readonly IServiceCollection _services = services;
 
-    internal List<string> Tasks { get; } = new(100);
+    internal HashSet<string> Tasks { get; } = new(100);
     internal bool IsSetConfigurationProvider { get; private set; }
-    internal bool IsSetStepsReaderRepository { get; private set; }
+    internal bool IsSetProcessStepsRepository { get; private set; }
     internal bool IsSetProcessRepository { get; private set; }
 
     public void AddSettingsProvider<T>() where T : class, IBackgroundSettingsProvider
@@ -22,10 +22,10 @@ public sealed class BackgroundConfiguration(IServiceCollection services)
         IsSetConfigurationProvider = true;
     }
 
-    public void AddStepsReaderRepository<T, TRepo>() where T : class, IPersistentProcessStep where TRepo : class, IPersistenceReaderRepository<T>
+    public void AddProcessStepsRepository<T, TRepo>() where T : class, IPersistentProcessStep where TRepo : class, IPersistenceReaderRepository<T>
     {
         _services.AddScoped<IPersistenceReaderRepository<T>, TRepo>();
-        IsSetStepsReaderRepository = true;
+        IsSetProcessStepsRepository = true;
     }
 
     public void AddProcessRepository<T, TRepo>() where T : class, IPersistentProcess where TRepo : class, IPersistenceProcessRepository<T>
@@ -36,10 +36,10 @@ public sealed class BackgroundConfiguration(IServiceCollection services)
 
     public void AddTask<T>(string Name) where T : BackgroundService
     {
-        Registrations.BackgroundTaskRegistrationsMap.Add(Name, new());
-        Registrations.BackgroundTaskRegistrationsMap[Name].SetResult();
+        var result = Tasks.Add(Name);
 
-        Tasks.Add(Name);
+        if (!result)
+            throw new InvalidOperationException($"Task with name {Name} is already registered.");
 
         _services.AddHostedService<T>();
     }
