@@ -50,14 +50,14 @@ restart:
 
                 RunCount = 0;
 
-                _log.Warn($"Configuration of the '{TaskName}' was changed. It will be restarted.");
+                _log.Warn($"Configuration of the background task '{TaskName}' was changed. It will be restarted.");
 
                 break;
             }
 
             if (taskScheduler.IsStopped(out var reason))
             {
-                _log.Warn($"Task '{TaskName}' has been stopped. Reason: {reason}.");
+                _log.Warn($"Background task '{TaskName}' has been stopped. Reason: {reason}.");
 
                 await StopAsync(cToken);
 
@@ -68,7 +68,7 @@ restart:
             {
                 timer = new PeriodicTimer(waitingPeriod);
 
-                _log.Warn($"Task '{TaskName}' is not ready to start. Reason: {reason}. Next time the task '{TaskName}' will be launched in {waitingPeriod:dd\\.hh\\:mm\\:ss}.");
+                _log.Warn($"Background task '{TaskName}' is not ready to start. Reason: {reason}. Next time the task '{TaskName}' will be launched in {waitingPeriod:dd\\.hh\\:mm\\:ss}.");
 
                 continue;
             }
@@ -77,18 +77,18 @@ restart:
             {
                 RunCount = 0;
 
-                _log.Warn($"Counter for the task '{TaskName}' was reset.");
+                _log.Warn($"Counter for the background task '{TaskName}' was reset.");
             }
 
             RunCount++;
 
             try
             {
-                _log.Trace($"Task '{TaskName}' has started.");
+                _log.Trace($"Background task '{TaskName}' has started.");
 
                 await Run(cToken);
 
-                _log.Debug($"Task '{TaskName}' has finished.");
+                _log.Debug($"Background task '{TaskName}' has finished.");
             }
             catch (Exception exception)
             {
@@ -96,7 +96,7 @@ restart:
             }
             finally
             {
-                _log.Trace($"Next time the task '{TaskName}' will be launched in {taskScheduler.WaitingPeriod:dd\\.hh\\:mm\\:ss}.");
+                _log.Trace($"Next time the background task '{TaskName}' will be launched in {taskScheduler.WaitingPeriod:dd\\.hh\\:mm\\:ss}.");
 
                 if (TaskSettings.Schedule.IsOnce)
                     taskScheduler.SetOnce();
