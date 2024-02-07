@@ -95,7 +95,9 @@ public abstract class BackgroundTask<TData, TDataStep, TBackgroundStepHandler>(
                 data[i].Error = exception.Message;
             }
             
-            _log.Error($"Handling step '{step.Name}' for the '{TaskName}' has failed. Reason: {exception}");
+            var reason = exception.InnerException ?? exception;
+
+            _log.Error($"Handling step '{step.Name}' for the '{TaskName}' has failed. Reason: {reason.Message}");
         }
     }
     private async Task HandleSteps(
