@@ -37,14 +37,14 @@ public abstract class BackgroundTask<TData, TDataStep, TBackgroundStepHandler>(
         var processRepository = scope.ServiceProvider.GetRequiredService<IPersistenceProcessRepository<TData>>();
         var stepsRepository = scope.ServiceProvider.GetRequiredService<IPersistenceReaderRepository<TDataStep>>();
 
-        var steps = await GetStepsQueue(stepsRepository, cToken);
+        var steps = await GetSteps(stepsRepository, cToken);
 
         await HandleSteps(scope.ServiceProvider, stepsRepository, processRepository, steps, cToken);
     }
 
     protected virtual Expression<Func<TData, bool>> DataFilter => x => true;
 
-    private async Task<Queue<IPersistentProcessStep>> GetStepsQueue(
+    private async Task<Queue<IPersistentProcessStep>> GetSteps(
         IPersistenceReaderRepository<TDataStep> repository,
         CancellationToken cToken)
     {
@@ -70,36 +70,6 @@ public abstract class BackgroundTask<TData, TDataStep, TBackgroundStepHandler>(
 
         return result;
     }
-    private async Task HandleStep(
-        IServiceProvider serviceProvider,
-        IPersistentProcessStep step,
-        TData[] data,
-        CancellationToken cToken)
-    {
-        _log.Trace($"Handling step '{step.Name}' for the '{TaskName}' has started.");
-
-        try
-        {
-            await _handler.Handle(TaskName, serviceProvider, step, data, cToken);
-
-            foreach (var item in data.Where(x => x.StatusId != (int)ProcessStatuses.Error))
-                item.StatusId = (int)ProcessStatuses.Processed;
-
-            _log.Debug($"Handling step '{step.Name}' for the '{TaskName}' has finished. Items count: {data.Length}.");
-        }
-        catch (Exception exception)
-        {
-            for (var i = 0; i < data.Length; i++)
-            {
-                data[i].StatusId = (int)ProcessStatuses.Error;
-                data[i].Error = exception.Message;
-            }
-            
-            var reason = exception.InnerException ?? exception;
-
-            _log.Error($"Handling step '{step.Name}' for the '{TaskName}' has failed. Reason: {reason.Message}");
-        }
-    }
     private async Task HandleSteps(
         IServiceProvider serviceProvider,
         IPersistenceReaderRepository<TDataStep> stepsRepository,
@@ -119,7 +89,9 @@ public abstract class BackgroundTask<TData, TDataStep, TBackgroundStepHandler>(
                 return;
             }
 
-            var data = await GetData(processRepository, currentStep, cToken);
+            _log.Info($"Task '{TaskName}' with step '{currentStep.Name}' has started.");
+
+            var data = await GetStepData(processRepository, currentStep, cToken);
 
             if (data.Length == 0)
                 continue;
@@ -128,12 +100,14 @@ public abstract class BackgroundTask<TData, TDataStep, TBackgroundStepHandler>(
 
             steps.TryPeek(out var nextStep);
 
-            await SaveResult(stepsRepository, processRepository, currentStep, nextStep, data, cToken);
+            await SaveStepData(stepsRepository, processRepository, currentStep, nextStep, data, cToken);
         }
 
-        _log.Trace($"Steps handling of the '{TaskName}' has finished.");
+        _log.Debug($"Steps handling of the '{TaskName}' has finished.");
     }
-    private async Task<TData[]> GetData(
+
+
+    private async Task<TData[]> GetStepData(
         IPersistenceProcessRepository<TData> repository,
         IPersistentProcessStep step,
         CancellationToken cToken)
@@ -181,7 +155,37 @@ public abstract class BackgroundTask<TData, TDataStep, TBackgroundStepHandler>(
 
         return processableData;
     }
-    private async Task SaveResult(
+    private async Task HandleStep(
+        IServiceProvider serviceProvider,
+        IPersistentProcessStep step,
+        TData[] data,
+        CancellationToken cToken)
+    {
+        _log.Trace($"Handling step '{step.Name}' for the '{TaskName}' has started.");
+
+        try
+        {
+            await _handler.Handle(TaskName, serviceProvider, step, data, cToken);
+
+            foreach (var item in data.Where(x => x.StatusId != (int)ProcessStatuses.Error))
+                item.StatusId = (int)ProcessStatuses.Processed;
+
+            _log.Debug($"Handling step '{step.Name}' for the '{TaskName}' has finished. Items count: {data.Length}.");
+        }
+        catch (Exception exception)
+        {
+            for (var i = 0; i < data.Length; i++)
+            {
+                data[i].StatusId = (int)ProcessStatuses.Error;
+                data[i].Error = exception.Message;
+            }
+
+            var reason = exception.InnerException ?? exception;
+
+            _log.Error($"Handling step '{step.Name}' for the '{TaskName}' has failed. Reason: {reason.Message}");
+        }
+    }
+    private async Task SaveStepData(
         IPersistenceReaderRepository<TDataStep> stepsRepository,
         IPersistenceProcessRepository<TData> processRepository,
         IPersistentProcessStep currentStep,
@@ -193,7 +197,7 @@ public abstract class BackgroundTask<TData, TDataStep, TBackgroundStepHandler>(
 
         if (TaskSettings.IsInfinite && nextStep is null)
         {
-            var steps = await GetStepsQueue(stepsRepository, cToken);
+            var steps = await GetSteps(stepsRepository, cToken);
             nextStep = steps.Peek();
         }
 

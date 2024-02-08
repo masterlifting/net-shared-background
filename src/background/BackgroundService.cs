@@ -84,7 +84,7 @@ restart:
 
             try
             {
-                _log.Trace($"Background task '{TaskName}' has started.");
+                _log.Debug($"Background task '{TaskName}' has started.");
 
                 await Run(cToken);
 
@@ -96,7 +96,7 @@ restart:
             }
             finally
             {
-                _log.Trace($"Next time the background task '{TaskName}' will be launched in {taskScheduler.WaitingPeriod:dd\\.hh\\:mm\\:ss}.");
+                _log.Debug($"Next time the background task '{TaskName}' will be launched in {taskScheduler.WaitingPeriod:dd\\.hh\\:mm\\:ss}.");
 
                 if (TaskSettings.Schedule.IsOnce)
                     taskScheduler.SetOnce();
@@ -112,6 +112,6 @@ restart:
     {
         await base.StopAsync(cToken);
 
-        _log.Warn($"Background service of the '{TaskName}' has been stopped.");
+        _log.Info($"Background service of the '{TaskName}' has been stopped.");
     }
 }
