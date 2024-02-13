@@ -40,10 +40,12 @@ restart:
 
         var taskScheduler = new BackgroundTaskScheduler(TaskSettings.Schedule);
 
-        var timer = new PeriodicTimer(taskScheduler.WaitingPeriod);
+        PeriodicTimer timer;
 
         do
         {
+            timer = new PeriodicTimer(taskScheduler.WaitingPeriod);
+
             if (_isSettingsChanged)
             {
                 _isSettingsChanged = false;
